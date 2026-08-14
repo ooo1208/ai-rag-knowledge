@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ollama Chat - 流式对话</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #1a1a2e;
+      --surface: #16213e;
+      --surface-hover: #1a2744;
+      --border: #2a3f5f;
+      --text: #e0e0e0;
+      --text-secondary: #8892a8;
+      --accent: #4a9eff;
+      --accent-hover: #3a8eef;
+      --user-bubble: #2563eb;
+      --assistant-bubble: #1e293b;
+      --danger: #ef4444;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ========== Header ========== */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+
+    header .logo {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--accent);
+      white-space: nowrap;
+    }
+
+    .config-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .config-bar label {
+      font-size: 13px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    .config-bar input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      width: 220px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .config-bar input:focus {
+      border-color: var(--accent);
+    }
+
+    .api-base-wrapper {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .api-base-wrapper input {
+      width: 280px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-secondary);
+      transition: background 0.3s;
+    }
+
+    .status-dot.active {
+      background: #22c55e;
+      box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
+    }
+
+    .status-dot.streaming {
+      background: var(--accent);
+      box-shadow: 0 0 6px rgba(74, 158, 255, 0.6);
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ========== Messages Area ========== */
+    .messages-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 0;
+      scroll-behavior: smooth;
+    }
+
+    .messages-inner {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .message {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .message.user {
+      flex-direction: row-reverse;
+    }
+
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .message.user .avatar {
+      background: var(--user-bubble);
+      color: #fff;
+    }
+
+    .message.assistant .avatar {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .bubble {
+      max-width: 75%;
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      line-height: 1.7;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+
+    .message.user .bubble {
+      background: var(--user-bubble);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+
+    .message.assistant .bubble {
+      background: var(--assistant-bubble);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+    }
+
+    /* Streaming cursor */
+    .cursor {
+      display: inline-block;
+      width: 8px;
+      height: 16px;
+      background: var(--accent);
+      margin-left: 2px;
+      vertical-align: text-bottom;
+      animation: blink 0.8s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    /* Error message */
+    .message.error .bubble {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid var(--danger);
+      color: #f87171;
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 80px 20px;
+      color: var(--text-secondary);
+    }
+
+    .empty-state h2 {
+      font-size: 24px;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    .empty-state p {
+      font-size: 14px;
+    }
+
+    /* ========== Input Area ========== */
+    .input-area {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 16px 24px;
+      flex-shrink: 0;
+    }
+
+    .input-inner {
+      max-width: 800px;
+      margin: 0 auto;
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+    }
+
+    .message-input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-family: inherit;
+      resize: none;
+      max-height: 120px;
+      min-height: 46px;
+      outline: none;
+      transition: border-color 0.2s;
+      line-height: 1.5;
+    }
+
+    .message-input:focus {
+      border-color: var(--accent);
+    }
+
+    .message-input::placeholder {
+      color: var(--text-secondary);
+    }
+
+    .btn {
+      padding: 12px 20px;
+      border-radius: var(--radius);
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+      height: 46px;
+    }
+
+    .btn-send {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-send:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
+
+    .btn-send:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn-stop {
+      background: var(--danger);
+      color: #fff;
+      display: none;
+    }
+
+    .btn-stop:hover {
+      opacity: 0.85;
+    }
+
+    .btn-stop.visible {
+      display: block;
+    }
+
+    /* Scrollbar */
+    .messages-container::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .messages-container::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .messages-container::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+
+    .messages-container::-webkit-scrollbar-thumb:hover {
+      background: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🦙 Ollama Chat</div>
+  <div class="config-bar">
+    <label>模型:</label>
+    <input type="text" id="modelInput" value="deepseek-r1:1.5b" placeholder="模型名称">
+    <div class="api-base-wrapper">
+      <label>API:</label>
+      <input type="text" id="apiBaseInput" value="http://localhost:8090" placeholder="http://localhost:8090">
+    </div>
+    <div class="status-dot" id="statusDot" title="空闲"></div>
+  </div>
+</header>
+
+<div class="messages-container" id="messagesContainer">
+  <div class="messages-inner" id="messagesInner">
+    <div class="empty-state" id="emptyState">
+      <h2>开始对话</h2>
+      <p>输入消息，按 Enter 发送，流式接收 AI 回复</p>
+    </div>
+  </div>
+</div>
+
+<div class="input-area">
+  <div class="input-inner">
+      <textarea
+              id="messageInput"
+              class="message-input"
+              placeholder="输入消息... (Enter 发送, Shift+Enter 换行)"
+              rows="1"
+      ></textarea>
+    <button class="btn btn-send" id="sendBtn">发送</button>
+    <button class="btn btn-stop" id="stopBtn">停止</button>
+  </div>
+</div>
+
+<script>
+  // ========== DOM References ==========
+  const modelInput = document.getElementById('modelInput');
+  const apiBaseInput = document.getElementById('apiBaseInput');
+  const messageInput = document.getElementById('messageInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const messagesContainer = document.getElementById('messagesContainer');
+  const messagesInner = document.getElementById('messagesInner');
+  const emptyState = document.getElementById('emptyState');
+  const statusDot = document.getElementById('statusDot');
+
+  // ========== State ==========
+  let isStreaming = false;
+  let abortController = null;
+
+  // ========== Helpers ==========
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  function scrollToBottom() {
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+
+  function setStatus(state) {
+    statusDot.className = 'status-dot';
+    if (state === 'streaming') {
+      statusDot.classList.add('streaming');
+      statusDot.title = '接收中...';
+    } else if (state === 'active') {
+      statusDot.classList.add('active');
+      statusDot.title = '已连接';
+    } else {
+      statusDot.title = '空闲';
+    }
+  }
+
+  function setStreaming(on) {
+    isStreaming = on;
+    sendBtn.style.display = on ? 'none' : 'block';
+    stopBtn.classList.toggle('visible', on);
+    messageInput.disabled = false;
+    setStatus(on ? 'streaming' : 'idle');
+  }
+
+  function hideEmptyState() {
+    if (emptyState && emptyState.parentNode) {
+      emptyState.parentNode.removeChild(emptyState);
+    }
+  }
+
+  function addMessage(role, content) {
+    hideEmptyState();
+    const msg = document.createElement('div');
+    msg.className = `message ${role}`;
+
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.textContent = role === 'user' ? '我' : 'AI';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.innerHTML = escapeHtml(content);
+
+    msg.appendChild(avatar);
+    msg.appendChild(bubble);
+    messagesInner.appendChild(msg);
+    scrollToBottom();
+    return bubble;
+  }
+
+  /**
+   * 解析流式响应中的一个数据片段。
+   * 兼容三种格式：
+   *   1. 单个大 JSON 数组（Content-Type: application/json，一次性返回）
+   *   2. SSE (text/event-stream): data:{...}\n\n
+   *   3. NDJSON: 每行一个 JSON
+   * 字段兼容：优先取 text，回退取 content（不同 Spring AI 版本字段名不同）
+   */
+  function parseChunk(text) {
+    let trimmed = text.trim();
+    if (!trimmed) return null;
+
+    // 去除 SSE 的 data: 前缀
+    if (trimmed.startsWith('data:')) {
+      trimmed = trimmed.slice(5).trim();
+    }
+    if (!trimmed) return null;
+
+    try {
+      const data = JSON.parse(trimmed);
+      // data 可能是数组（取所有元素），也可能是单个对象
+      const items = Array.isArray(data) ? data : [data];
+      let content = '';
+      for (const item of items) {
+        // 兼容多种数据结构路径
+        const output = item?.result?.output || item?.output;
+        if (output) {
+          // Spring AI 实际字段是 text，用户描述的是 content，两个都试
+          const text = output.text ?? output.content;
+          if (typeof text === 'string' && text) content += text;
+        }
+      }
+      return content || null;
+    } catch (e) {
+      // JSON 不完整（流式传输中正常现象），返回 null 等更多数据
+      return null;
+    }
+  }
+
+  /**
+   * 从 buffer 中提取完整的"事件"。
+   * SSE 事件以 \n\n 分隔，NDJSON 以 \n 分隔。
+   * 返回 { events: string[], remainder: string }
+   */
+  function extractEvents(buffer) {
+    const events = [];
+    let remainder = buffer;
+
+    // 优先按 SSE 分隔符 \n\n 切分
+    // 同时也兼容 \r\n\r\n 的情况
+    const parts = remainder.split(/\n\n|\r\r/);
+    remainder = parts.pop(); // 最后一段可能不完整，保留
+
+    for (const part of parts) {
+      const trimmed = part.trim();
+      if (trimmed) events.push(trimmed);
+    }
+
+    // 如果只切出 0 个事件，且 buffer 中包含 \n，
+    // 尝试按 NDJSON 单行方式切分（兼容非 SSE 格式）
+    if (events.length === 0 && remainder.includes('\n')) {
+      const lines = remainder.split('\n');
+      remainder = lines.pop();
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed) events.push(trimmed);
+      }
+    }
+
+    return { events, remainder };
+  }
+
+  // ========== Auto-resize textarea ==========
+  messageInput.addEventListener('input', function () {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+  });
+
+  // ========== Enter to send ==========
+  messageInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  sendBtn.addEventListener('click', sendMessage);
+  stopBtn.addEventListener('click', stopStreaming);
+
+  // ========== Stop ==========
+  function stopStreaming() {
+    if (abortController) {
+      abortController.abort();
+      abortController = null;
+    }
+    setStreaming(false);
+  }
+
+  // ========== Send Message ==========
+  async function sendMessage() {
+    const message = messageInput.value.trim();
+    const model = modelInput.value.trim();
+    const apiBase = apiBaseInput.value.trim().replace(/\/+$/, '');
+
+    if (!message) return;
+    if (!model) {
+      alert('请填写模型名称');
+      return;
+    }
+    if (!apiBase) {
+      alert('请填写 API 地址');
+      return;
+    }
+    if (isStreaming) return;
+
+    // 显示用户消息
+    addMessage('user', message);
+    messageInput.value = '';
+    messageInput.style.height = 'auto';
+
+    // 创建 AI 回复气泡
+    const bubble = addMessage('assistant', '');
+    let fullContent = '';
+
+    // 添加闪烁光标
+    const cursor = document.createElement('span');
+    cursor.className = 'cursor';
+    bubble.appendChild(cursor);
+
+    setStreaming(true);
+
+    // 构建请求 URL
+    const url = `${apiBase}/api/v1/ollama/generate_stream?model=${encodeURIComponent(model)}&message=${encodeURIComponent(message)}`;
+
+    abortController = new AbortController();
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        signal: abortController.signal,
+        headers: {
+          'Accept': 'text/event-stream',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      // ===== DEBUG: 打印响应头 =====
+      console.log('[DEBUG] Response Content-Type:', response.headers.get('content-type'));
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        // 将本次读取的 bytes 解码并追加到 buffer
+        const decoded = decoder.decode(value, { stream: true });
+        buffer += decoded;
+
+        // 从 buffer 中提取完整事件（兼容 SSE 和 NDJSON）
+        const { events, remainder } = extractEvents(buffer);
+        buffer = remainder;
+
+        for (const evt of events) {
+          const content = parseChunk(evt);
+          if (content !== null && content !== '') {
+            fullContent += content;
+            // 更新气泡内容（保留光标）
+            bubble.innerHTML = escapeHtml(fullContent);
+            bubble.appendChild(cursor);
+            scrollToBottom();
+          }
+        }
+
+        // 注意：不完整的 SSE 事件会留在 buffer 中等待下次到达
+        // 不在这里强行解析 buffer，避免覆盖已积累的内容
+      }
+
+      // 处理 buffer 中剩余的数据
+      if (buffer.trim()) {
+        const content = parseChunk(buffer);
+        if (content !== null && content !== '') {
+          fullContent += content;
+        }
+      }
+
+      // 移除光标，设置最终内容
+      cursor.remove();
+      bubble.innerHTML = escapeHtml(fullContent) || '<span style="color: var(--text-secondary);">(空回复)</span>';
+
+    } catch (err) {
+      // 移除光标
+      cursor.remove();
+      if (err.name === 'AbortError') {
+        // 用户手动停止，保留已接收的内容
+        if (!fullContent) {
+          bubble.innerHTML = '<span style="color: var(--text-secondary);">(已停止)</span>';
+        }
+      } else {
+        // 显示错误
+        const msgEl = bubble.closest('.message');
+        msgEl.classList.add('error');
+        bubble.innerHTML = `❌ 请求失败: ${escapeHtml(err.message)}`;
+      }
+    } finally {
+      setStreaming(false);
+      abortController = null;
+      scrollToBottom();
+    }
+  }
+</script>
+</body>
+</html>
