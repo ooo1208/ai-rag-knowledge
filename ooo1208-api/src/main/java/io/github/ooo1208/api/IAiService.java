@@ -1,6 +1,7 @@
 package io.github.ooo1208.api;
 
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import reactor.core.publisher.Flux;
 
 public interface IAiService {
@@ -8,5 +9,4 @@ public interface IAiService {
     ChatResponse generate(String model, String message);
 
     Flux<ChatResponse> generateStream(String model, String message);
-
 }
