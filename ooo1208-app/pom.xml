@@ -122,7 +122,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <mainClass>cn.bugstack.xfg.dev.tech.Application</mainClass>
+                    <mainClass>io.github.ooo1208.Application</mainClass>
                     <layout>JAR</layout>
                 </configuration>
             </plugin>

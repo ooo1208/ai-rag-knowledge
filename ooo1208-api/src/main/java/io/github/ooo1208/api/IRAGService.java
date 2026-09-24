@@ -21,4 +21,7 @@ public interface IRAGService {
      * @return 文件上传结果
      */
     Response<String> uploadFile(String ragTag, List<MultipartFile> files);
+
+
+    Response<String> analyzeGitRepository(String repoUrl, String username, String token) throws Exception;
 }

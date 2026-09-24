@@ -49,6 +49,9 @@ redis:
       ping-interval: 60000
       keep-alive: true
 
+github:
+  token:
+
 logging:
   level:
     root: info
