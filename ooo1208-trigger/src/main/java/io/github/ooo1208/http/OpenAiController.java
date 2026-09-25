@@ -8,10 +8,10 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.ai.document.Document;
-import org.springframework.ai.ollama.OllamaChatModel;
-import org.springframework.ai.ollama.api.OllamaOptions;
+import org.springframework.ai.openai.OpenAiChatModel;
+import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.vectorstore.SearchRequest;
-import org.springframework.ai.vectorstore.pgvector.PgVectorStore;
+import org.springframework.ai.vectorstore.observation.AbstractObservationVectorStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
@@ -20,40 +20,41 @@ import java.util.List;
 import java.util.Map;
 
 @RestController()
+@RequestMapping("/api/v1/openai/")
 @CrossOrigin("*")
-@RequestMapping("/api/v1/ollama/")
-public class OllamaController implements IAiService {
-
-    @Autowired
-    private OllamaChatModel chatModel;
+public class OpenAiController implements IAiService {
 
     @Resource
-    private PgVectorStore pgVectorStore;
+    private OpenAiChatModel chatModel;
+    @Autowired
+    private AbstractObservationVectorStore pgVectorStore;
 
-    /**
-     * http://localhost:8090/api/v1/ollama/generate?model=deepseek-r1:1.5b&message=1+1
-     */
     @GetMapping("/generate")
     @Override
-    public ChatResponse generate(@RequestParam String model, @RequestParam String message) {
+    public ChatResponse generate(String model, String message) {
         return chatModel.call(new Prompt(
                 message,
-                OllamaOptions.builder().model(model).build())
-        );
+                OpenAiChatOptions.builder()
+                        .model(model)
+                        .build()
+        ));
     }
 
-    /**
-     * http://localhost:8090/api/v1/ollama/generate_stream?model=deepseek-r1:1.5b&message=hi
-     */
     @GetMapping("/generate_stream")
     @Override
-    public Flux<ChatResponse> generateStream(String model, String message) {
-        return chatModel.stream(new Prompt(message, OllamaOptions.builder().model(model).build()));
+    public Flux<ChatResponse> generateStream(@RequestParam String model, @RequestParam String message) {
+        return chatModel.stream(new Prompt(
+                message,
+                OpenAiChatOptions.builder()
+                        .model(model)
+                        .build()
+        ));
     }
 
     @GetMapping("/generate_stream_rag")
     @Override
     public Flux<ChatResponse> generateStreamRag(String model, String ragTag, String message) {
+
         String SYSTEM_PROMPT = """
                 Use the information from the DOCUMENTS section to provide accurate answers but act as if you knew this information innately.
                 If unsure, simply state that you don't know.
@@ -62,26 +63,19 @@ public class OllamaController implements IAiService {
                     {documents}
                 """;
 
-        // 告诉向量数据库我要搜什么，怎么搜 （SearchRequest — Spring AI 定义的搜索请求对象，不会真正去搜）
         SearchRequest request = SearchRequest.builder()
                 .query(message)
                 .topK(5)
                 .filterExpression("knowledge == '" + ragTag + "'")
                 .build();
 
-        // 从向量数据库中搜索
         List<Document> documents = pgVectorStore.similaritySearch(request);
         List<String> documentContents = documents.stream().map(Document::getText).toList();
-        // 渲染提示模板
+
         PromptTemplate promptTemplate = new PromptTemplate(SYSTEM_PROMPT);
         String renderedPrompt = promptTemplate.render(Map.of("documents", documentContents));
-        // 创建系统消息
         SystemMessage systemMessage = new SystemMessage(renderedPrompt);
-        // 创建Prompt (系统消息 + 用户消息)
         Prompt prompt = new Prompt(List.of(systemMessage, new UserMessage(message)));
-        // 流式输出
         return chatModel.stream(prompt);
     }
-
-
 }
