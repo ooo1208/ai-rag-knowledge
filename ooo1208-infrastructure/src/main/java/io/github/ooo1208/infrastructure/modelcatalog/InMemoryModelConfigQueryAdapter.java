@@ -6,6 +6,7 @@ import io.github.ooo1208.domain.modelcatalog.ModelConfigId;
 import io.github.ooo1208.domain.modelcatalog.ProviderType;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Profile;
 
 import java.util.Map;
 import java.util.Objects;
@@ -15,6 +16,7 @@ import java.util.Objects;
  * 现在提供两个系统预置配置；后续替换为数据库适配器，不需要改 ChatApplicationService。
  */
 @Component
+@Profile("in-memory-model-config")
 public final class InMemoryModelConfigQueryAdapter
         implements ModelConfigQueryPort {
 

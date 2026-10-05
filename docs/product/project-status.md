@@ -1,12 +1,12 @@
 # 项目状态与交接记录
 
-最后更新：2026-10-03
+最后更新：2026-10-05
 
 ## 当前结论
 
 Phase 0 和 Phase 1 的核心代码已经落地：聊天和 RAG 都有统一的 application 用例，HTTP 层不再直接编排模型或向量库，Ollama 和 OpenAI Compatible 通过出站适配器接入。
 
-这一版是后续动态模型平台的架构基线，不是最终的动态配置产品。模型配置目前仍由 `InMemoryModelConfigQueryAdapter` 提供两个系统预置项。
+这一版已经完成模型目录数据库化的第一版：Flyway 创建三张模型目录表，JDBC 适配器读取启用的模型预设，启动时补齐两个系统预置项。它仍不是最终的动态配置产品，模型客户端暂时仍由启动时 Bean 创建。
 
 ## 已完成
 
@@ -37,6 +37,14 @@ Phase 0 和 Phase 1 的核心代码已经落地：聊天和 RAG 都有统一的 
 - JGit 读取实现 `GitRepositoryReaderPort`。
 - Controller 不再直接引用 `PgVectorStore`、`TokenTextSplitter`、`TikaDocumentReader`、`RedissonClient` 或 JGit。
 
+### 模型目录第一版
+
+- Flyway 迁移创建 `provider_connection`、`model_binding`、`model_preset`。
+- `JdbcModelConfigQueryAdapter` 按 `modelConfigId` 联表查询启用的预设、模型绑定和服务商连接。
+- boot 启动时只在记录不存在时写入 Ollama 和 OpenAI Compatible 两个系统预置配置。
+- `InMemoryModelConfigQueryAdapter` 保留为显式 `in-memory-model-config` profile 下的过渡实现。
+- 数据库中的 `baseUrl` 和 `credentialRef` 已进入解析结果，但动态客户端和凭证解析仍属于下一步。
+
 ### 配置和可读性
 
 - API Key、数据库和 Redis 连接支持环境变量覆盖。
@@ -52,6 +60,8 @@ mvn -DskipTests compile
 mvn package -DskipTests
 mvn clean package -DskipTests
 ```
+
+2026-10-05 的 clean package 已包含 Flyway 模型目录迁移，7 个模块全部成功。
 
 构建产物：
 
@@ -71,24 +81,22 @@ ooo1208-app/target/ai-rag-knowledge.jar
 
 这些功能不能被误认为已经完成：
 
-1. 数据库保存 `ProviderConnection`、`ModelBinding`、`ModelPreset`。
-2. 管理员新增、编辑、启用、禁用和测试模型连接。
-3. 用户自定义 API Key、密钥加密、Secret 引用、轮换和权限控制。
-4. 按服务商自动同步模型列表。
-5. 前端按服务商分组展示模型、搜索、收藏和最近使用。
-6. 按不同 baseUrl 和 credentialRef 动态创建模型客户端。
-7. 会话保存实际调用的模型配置快照。
-8. 统一错误码、超时、重试、fallback、限流、用量和成本统计。
-9. EmbeddingProfile 和知识库级向量模型版本管理。
+1. 管理员新增、编辑、启用、禁用和测试模型连接。
+2. 用户自定义 API Key、密钥加密、Secret 引用、轮换和权限控制。
+3. 按服务商自动同步模型列表。
+4. 前端按服务商分组展示模型、搜索、收藏和最近使用。
+5. 按不同 baseUrl 和 credentialRef 动态创建模型客户端。
+6. 会话保存实际调用的模型配置快照。
+7. 统一错误码、超时、重试、fallback、限流、用量和成本统计。
+8. EmbeddingProfile 和知识库级向量模型版本管理。
 
 ## 下一步执行顺序
 
-### Step 1：先替换模型配置查询实现
+### Step 1：模型目录数据库化（第一版已完成）
 
-- 设计数据库表：`provider_connection`、`model_binding`、`model_preset`。
-- 先只支持系统管理员配置，不急着做普通用户 BYOK。
-- `ModelConfigQueryPort` 保持不变，把 `InMemoryModelConfigQueryAdapter` 替换成数据库适配器。
-- API Key 只保存加密值或 Secret 引用，任何查询接口只返回脱敏信息。
+- 已完成三张表的 Flyway 初始迁移和 `ModelConfigQueryPort` 的 JDBC 实现。
+- 当前只写入系统预置配置，不提供管理员 CRUD。
+- 连接的 `credentialRef` 只作为引用保存，不保存明文 API Key。
 
 ### Step 2：实现连接测试和动态客户端工厂
 

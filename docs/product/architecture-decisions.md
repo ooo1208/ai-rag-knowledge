@@ -81,7 +81,7 @@ RAG 检索不生成 Prompt，PromptAssembler 不访问向量库，模型适配�
 
 状态：明确标记为临时
 
-`InMemoryModelConfigQueryAdapter` 只用于先验证统一调用链。它不是最终产品能力。Phase 2 必须替换为数据库适配器，且不能让 ChatApplicationService 感知数据来源变化。
+`InMemoryModelConfigQueryAdapter` 只用于先验证统一调用链。当前默认实现已经替换为 PostgreSQL JDBC 适配器，内存实现仅保留在显式 profile 下，且 ChatApplicationService 不感知数据来源变化。
 
 ## ADR-009：不为了“看起来支持动态”而提前做任意 URL
 
@@ -94,3 +94,11 @@ RAG 检索不生成 Prompt，PromptAssembler 不访问向量库，模型适配�
 状态：已采用
 
 可以借鉴高星项目的模块划分、协议设计和产品流程；直接复制代码前必须检查许可证、版权声明和依赖兼容性。Dify、Open WebUI 和 LiteLLM 的代码不能因为开源就默认可以直接搬进本项目。
+
+## ADR-011：模型目录以 PostgreSQL 为数据源
+
+状态：已采用
+
+`provider_connection`、`model_binding` 和 `model_preset` 通过 Flyway 管理初始表结构，聊天应用继续依赖 `ModelConfigQueryPort`，由 infrastructure 的 JDBC 适配器查询启用配置。`InMemoryModelConfigQueryAdapter` 只作为显式 profile 下的过渡实现。
+
+启动时只补齐不存在的系统预置配置，不覆盖数据库中已有的连接、模型和预设。模型客户端仍暂时由启动时 Bean 创建，动态客户端工厂属于下一阶段。

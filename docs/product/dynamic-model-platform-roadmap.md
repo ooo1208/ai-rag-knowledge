@@ -1,6 +1,6 @@
 # 动态模型平台产品路线图
 
-> 当前实现状态：Phase 0 和 Phase 1 的核心代码已完成，详情见 [`project-status.md`](./project-status.md)。Phase 2 之前仍使用内存模型配置，不能把当前实现误认为已经支持数据库动态配置。
+> 当前实现状态：Phase 0 和 Phase 1 的核心代码已完成，Phase 2 已完成数据库模型目录的第一版读取链路，详情见 [`project-status.md`](./project-status.md)。管理员配置、动态客户端和模型发现仍未完成。
 
 ## 1. 产品目标
 

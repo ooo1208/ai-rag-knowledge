@@ -3,9 +3,14 @@ spring:
     name: ai-rag-knowledge
   profiles:
     active: dev
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 0
 
 app:
-  # Phase 0 的系统预置模型配置；后续由数据库模型目录替代。
+  # 系统预置模型配置：首次启动时用于写入数据库模型目录，也作为默认客户端配置。
   chat:
     ollama:
       model: deepseek-r1:1.5b

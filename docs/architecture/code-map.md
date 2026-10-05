@@ -50,7 +50,8 @@ ooo1208-trigger      ooo1208-infrastructure
 基础设施层实现 application 定义的出站端口。
 
 - `chat/*Adapter`：把统一聊天模型转换为 Ollama 或 OpenAI Compatible SDK 调用。
-- `modelcatalog/InMemoryModelConfigQueryAdapter`：Phase 0 的两个预置模型配置。
+- `modelcatalog/JdbcModelConfigQueryAdapter`：从 PostgreSQL 模型目录读取启用的模型预设。
+- `modelcatalog/InMemoryModelConfigQueryAdapter`：仅在 `in-memory-model-config` profile 下作为过渡实现。
 - `rag/PgVectorRagRetrieverAdapter`：PgVector 检索。
 - `rag/PgVectorRagDocumentStoreAdapter`：Tika 解析、切分和向量写入。
 - `rag/RedisRagTagStoreAdapter`：Redis 标签存储。
@@ -73,6 +74,7 @@ ooo1208-trigger      ooo1208-infrastructure
 - `Application`：Spring Boot 启动入口。
 - `ChatApplicationConfiguration`：组装聊天应用服务。
 - `RagApplicationConfiguration`：组装知识库应用服务。
+- `ModelCatalogDataInitializer`：补齐数据库中的系统预置模型配置。
 - `RedisClientConfig`：创建 Redisson 客户端。
 
 ## 一次聊天请求怎么走
@@ -92,4 +94,4 @@ ChatController
 
 ## 当前阶段边界
 
-当前 `InMemoryModelConfigQueryAdapter` 只是过渡实现，模型配置仍是系统预置值。数据库模型目录、用户自定义 API Key、模型自动发现和前端模型选择器属于后续阶段。
+当前数据库模型目录已经具备初始表结构和读取适配器，启动时会把两个系统预置配置写入空数据库。管理员配置 API、动态客户端、用户自定义 API Key、模型自动发现和前端模型选择器属于后续阶段。

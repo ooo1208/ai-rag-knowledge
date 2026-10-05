@@ -2,6 +2,26 @@
 
 这不是 Git commit 替代品，而是给后续会话看的“为什么这样改”和“改完验证了什么”。
 
+## 2026-10-05：模型目录数据库化第一版
+
+### 行动
+
+- 引入 Flyway，并新增 `provider_connection`、`model_binding`、`model_preset` 初始迁移。
+- 新增 `JdbcModelConfigQueryAdapter`，保持 `ModelConfigQueryPort` 不变。
+- 将两个系统预置模型写入空数据库；使用 `ON CONFLICT DO NOTHING` 保留后续管理员修改。
+- 将 `InMemoryModelConfigQueryAdapter` 限制为显式 `in-memory-model-config` profile。
+- 为已有非空 PostgreSQL schema 配置 baseline version 0，避免因为 PgVector 表已存在而跳过 V1 迁移。
+
+### 结果
+
+- `mvn clean package -DskipTests` 通过，7 个模块全部成功。
+- 可执行 JAR 中包含 Flyway 依赖、迁移脚本和新的数据库查询适配器。
+- 真实数据库迁移和聊天请求仍需要在 PostgreSQL、Redis、Ollama 或 OpenAI Compatible 服务可用的环境中验证。
+
+### 下一次行动
+
+实现管理员连接测试和动态模型客户端工厂，使数据库中的 `baseUrl`、`credentialRef` 和 `upstreamModelId` 真正参与模型客户端创建。
+
 ## 2026-10-03：统一聊天与 RAG 架构
 
 ### 行动
