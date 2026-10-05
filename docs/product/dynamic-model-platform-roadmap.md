@@ -1,6 +1,6 @@
 # 动态模型平台产品路线图
 
-> 当前实现状态：Phase 0 和 Phase 1 的核心代码已完成，Phase 2 已完成数据库模型目录的第一版读取链路，详情见 [`project-status.md`](./project-status.md)。管理员配置、动态客户端和模型发现仍未完成。
+> 当前实现状态：Phase 0 和 Phase 1 的核心代码已完成，Phase 2 已完成数据库模型目录和动态客户端的第一版链路，详情见 [`project-status.md`](./project-status.md)。管理员配置、连接测试和模型发现仍未完成。
 
 ## 1. 产品目标
 
@@ -156,7 +156,7 @@ POST /api/v1/chat/stream
 5. 支持手动添加模型 ID。
 6. 模型 ID 与展示名称分离。
 7. 保存密钥时采用加密或外部 Secret 引用，不允许明文回显。
-8. 应用启动时不再依赖 `application-dev.yml` 中的具体模型名称。
+8. 聊天客户端不再把 `application-dev.yml` 中的模型名称作为唯一运行时来源；配置文件仍可作为系统预置数据的种子。
 
 ### 验收标准
 

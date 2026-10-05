@@ -20,7 +20,24 @@
 
 ### 下一次行动
 
-实现管理员连接测试和动态模型客户端工厂，使数据库中的 `baseUrl`、`credentialRef` 和 `upstreamModelId` 真正参与模型客户端创建。
+实现管理员连接测试，并为动态客户端补充缓存、失效和统一错误分类。
+
+## 2026-10-05：动态模型客户端第一版
+
+### 行动
+
+- 新增 infrastructure 层 `ChatModelFactory`，根据 `ResolvedModelConfig` 创建 Ollama 或 OpenAI Compatible 客户端。
+- 聊天适配器不再注入固定的启动时聊天模型 Bean，而是按请求使用数据库解析出的 `baseUrl` 和凭证引用。
+- `credentialRef` 当前支持 `config:` 引用，实际密钥从 Spring `Environment` 获取，数据库只保存引用。
+
+### 结果
+
+- `mvn -pl ooo1208-infrastructure -am package -DskipTests` 通过。
+- 动态客户端链路已经接通，但真实服务商连接测试、统一错误分类和客户端缓存尚未实现。
+
+### 下一次行动
+
+增加管理员连接测试用例和按连接配置缓存客户端的失效策略。
 
 ## 2026-10-03：统一聊天与 RAG 架构
 

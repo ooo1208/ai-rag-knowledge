@@ -50,6 +50,8 @@ ooo1208-trigger      ooo1208-infrastructure
 基础设施层实现 application 定义的出站端口。
 
 - `chat/*Adapter`：把统一聊天模型转换为 Ollama 或 OpenAI Compatible SDK 调用。
+- `chat/ChatModelFactory`：按本次解析出的连接地址和凭证引用创建聊天客户端。
+- `config/OpenAiApiSupport`：规范化 OpenAI Compatible base URL，兼容带或不带 `/v1` 的配置。
 - `modelcatalog/JdbcModelConfigQueryAdapter`：从 PostgreSQL 模型目录读取启用的模型预设。
 - `modelcatalog/InMemoryModelConfigQueryAdapter`：仅在 `in-memory-model-config` profile 下作为过渡实现。
 - `rag/PgVectorRagRetrieverAdapter`：PgVector 检索。
@@ -94,4 +96,4 @@ ChatController
 
 ## 当前阶段边界
 
-当前数据库模型目录已经具备初始表结构和读取适配器，启动时会把两个系统预置配置写入空数据库。管理员配置 API、动态客户端、用户自定义 API Key、模型自动发现和前端模型选择器属于后续阶段。
+当前数据库模型目录已经具备初始表结构、读取适配器和动态聊天客户端工厂，启动时会把两个系统预置配置写入空数据库。管理员配置 API、连接测试、用户自定义 API Key、模型自动发现和前端模型选择器属于后续阶段。

@@ -5,15 +5,15 @@ import io.github.ooo1208.application.chat.port.out.ModelConfigQueryPort;
 import io.github.ooo1208.domain.modelcatalog.ModelConfigId;
 import io.github.ooo1208.domain.modelcatalog.ProviderType;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Component;
 
 import java.util.Map;
 import java.util.Objects;
 
 /**
  * Phase 0 的模型配置查询适配器。
- * 现在提供两个系统预置配置；后续替换为数据库适配器，不需要改 ChatApplicationService。
+ * 只在显式 profile 下提供两个系统预置配置，用于本地离线验证调用链。
  */
 @Component
 @Profile("in-memory-model-config")

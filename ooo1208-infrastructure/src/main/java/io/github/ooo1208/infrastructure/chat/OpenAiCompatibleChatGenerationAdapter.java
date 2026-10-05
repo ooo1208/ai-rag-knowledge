@@ -9,7 +9,6 @@ import io.github.ooo1208.domain.modelcatalog.ProviderType;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -25,12 +24,12 @@ import java.util.Objects;
 public final class OpenAiCompatibleChatGenerationAdapter
         implements ChatGenerationPort {
 
-    private final OpenAiChatModel chatModel;
+    private final ChatModelFactory chatModelFactory;
 
     public OpenAiCompatibleChatGenerationAdapter(
-            OpenAiChatModel chatModel
+            ChatModelFactory chatModelFactory
     ) {
-        this.chatModel = Objects.requireNonNull(chatModel);
+        this.chatModelFactory = Objects.requireNonNull(chatModelFactory);
     }
 
     @Override
@@ -44,7 +43,9 @@ public final class OpenAiCompatibleChatGenerationAdapter
             ResolvedModelConfig modelConfig
     ) {
         return SpringAiChatChunkMapper.toResponse(
-                chatModel.call(toSpringPrompt(prompt, modelConfig))
+                chatModelFactory
+                        .createOpenAiCompatible(modelConfig)
+                        .call(toSpringPrompt(prompt, modelConfig))
         );
     }
 
@@ -53,7 +54,9 @@ public final class OpenAiCompatibleChatGenerationAdapter
             ChatPrompt prompt,
             ResolvedModelConfig modelConfig
     ) {
-        return chatModel.stream(toSpringPrompt(prompt, modelConfig))
+        return chatModelFactory
+                .createOpenAiCompatible(modelConfig)
+                .stream(toSpringPrompt(prompt, modelConfig))
                 .map(SpringAiChatChunkMapper::toChunk);
     }
 

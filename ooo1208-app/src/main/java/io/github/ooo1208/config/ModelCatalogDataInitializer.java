@@ -3,6 +3,7 @@ package io.github.ooo1208.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +17,7 @@ import java.util.Objects;
  * 保留管理员后续对连接、模型和预设的修改。</p>
  */
 @Component
+@Profile("!in-memory-model-config")
 public final class ModelCatalogDataInitializer implements ApplicationRunner {
 
     private static final String INSERT_PROVIDER_CONNECTION = """

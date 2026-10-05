@@ -9,7 +9,6 @@ import io.github.ooo1208.domain.modelcatalog.ProviderType;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.ai.ollama.api.OllamaOptions;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -25,10 +24,10 @@ import java.util.Objects;
 public final class OllamaChatGenerationAdapter
         implements ChatGenerationPort {
 
-    private final OllamaChatModel chatModel;
+    private final ChatModelFactory chatModelFactory;
 
-    public OllamaChatGenerationAdapter(OllamaChatModel chatModel) {
-        this.chatModel = Objects.requireNonNull(chatModel);
+    public OllamaChatGenerationAdapter(ChatModelFactory chatModelFactory) {
+        this.chatModelFactory = Objects.requireNonNull(chatModelFactory);
     }
 
     @Override
@@ -42,7 +41,9 @@ public final class OllamaChatGenerationAdapter
             ResolvedModelConfig modelConfig
     ) {
         return SpringAiChatChunkMapper.toResponse(
-                chatModel.call(toSpringPrompt(prompt, modelConfig))
+                chatModelFactory
+                        .createOllama(modelConfig)
+                        .call(toSpringPrompt(prompt, modelConfig))
         );
     }
 
@@ -51,7 +52,9 @@ public final class OllamaChatGenerationAdapter
             ChatPrompt prompt,
             ResolvedModelConfig modelConfig
     ) {
-        return chatModel.stream(toSpringPrompt(prompt, modelConfig))
+        return chatModelFactory
+                .createOllama(modelConfig)
+                .stream(toSpringPrompt(prompt, modelConfig))
                 .map(SpringAiChatChunkMapper::toChunk);
     }
 

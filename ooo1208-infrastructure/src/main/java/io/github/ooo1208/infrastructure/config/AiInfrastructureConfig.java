@@ -35,10 +35,7 @@ public class AiInfrastructureConfig {
             @Value("${spring.ai.openai.base-url}") String baseUrl,
             @Value("${spring.ai.openai.api-key}") String apiKey
     ) {
-        return OpenAiApi.builder()
-                .baseUrl(baseUrl)
-                .apiKey(apiKey)
-                .build();
+        return OpenAiApiSupport.create(baseUrl, apiKey);
     }
 
     @Bean

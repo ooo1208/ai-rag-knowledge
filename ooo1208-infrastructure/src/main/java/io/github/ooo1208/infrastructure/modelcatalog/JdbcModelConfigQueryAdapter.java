@@ -4,6 +4,7 @@ import io.github.ooo1208.application.chat.model.ResolvedModelConfig;
 import io.github.ooo1208.application.chat.port.out.ModelConfigQueryPort;
 import io.github.ooo1208.domain.modelcatalog.ModelConfigId;
 import io.github.ooo1208.domain.modelcatalog.ProviderType;
+import org.springframework.context.annotation.Profile;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -18,6 +19,7 @@ import java.util.Objects;
  * infrastructure 层。只有启用的预设、模型绑定和服务商连接才允许进入聊天调用链。</p>
  */
 @Component
+@Profile("!in-memory-model-config")
 public final class JdbcModelConfigQueryAdapter
         implements ModelConfigQueryPort {
 
