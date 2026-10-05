@@ -8,13 +8,18 @@
   <artifactId>ai-rag-knowledge</artifactId>
   <version>1.0</version>
   <packaging>pom</packaging>
+  <!-- 模块依赖方向：domain <- application <- infrastructure/trigger <- boot -->
   <modules>
-    <module>ooo1208-api</module>
-    <module>ooo1208-app</module>
+    <module>ooo1208-domain</module>
+    <module>ooo1208-application</module>
+    <module>ooo1208-infrastructure</module>
     <module>ooo1208-trigger</module>
+    <module>ooo1208-app</module>
+    <module>ooo1208-types</module>
   </modules>
 
   <properties>
+    <java.version>21</java.version>
     <maven.compiler.source>21</maven.compiler.source>
     <maven.compiler.target>21</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -93,12 +98,22 @@
 
       <dependency>
         <groupId>io.github.ooo1208</groupId>
-        <artifactId>ooo1208-api</artifactId>
+        <artifactId>ooo1208-application</artifactId>
         <version>1.0</version>
       </dependency>
       <dependency>
         <groupId>io.github.ooo1208</groupId>
         <artifactId>ooo1208-trigger</artifactId>
+        <version>1.0</version>
+      </dependency>
+      <dependency>
+        <groupId>io.github.ooo1208</groupId>
+        <artifactId>ooo1208-infrastructure</artifactId>
+        <version>1.0</version>
+      </dependency>
+      <dependency>
+        <groupId>io.github.ooo1208</groupId>
+        <artifactId>ooo1208-domain</artifactId>
         <version>1.0</version>
       </dependency>
     </dependencies>
@@ -109,17 +124,18 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.0</version>
+        <version>3.13.0</version>
         <configuration>
           <source>${maven.compiler.source}</source>
           <target>${maven.compiler.target}</target>
           <encoding>${project.build.sourceEncoding}</encoding>
+          <parameters>true</parameters>
         </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-resources-plugin</artifactId>
-        <version>2.5</version>
+        <version>3.3.1</version>
         <configuration>
           <encoding>UTF-8</encoding>
         </configuration>

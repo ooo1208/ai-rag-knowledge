@@ -4,8 +4,8 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * @author ooo1208 github.io
- * Redis 连接配置 <a href="https://github.com/redisson/redisson/tree/master/redisson-spring-boot-starter">redisson-spring-boot-starter</a>
+ * Redis 连接参数。
+ * 通过 redis.sdk.config 读取，避免把连接细节传播到 application 层。
  */
 @Data
 @ConfigurationProperties(prefix = "redis.sdk.config", ignoreInvalidFields = true)

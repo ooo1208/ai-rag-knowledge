@@ -9,8 +9,8 @@
         <version>1.0</version>
     </parent>
 
-    <!-- 入口适配层：HTTP Controller、请求 DTO 和接口响应。 -->
-    <artifactId>ooo1208-trigger</artifactId>
+    <!-- 应用层：用例、命令、业务模型和端口。 -->
+    <artifactId>ooo1208-application</artifactId>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
@@ -19,16 +19,12 @@
     </properties>
     <dependencies>
         <dependency>
+            <groupId>org.reactivestreams</groupId>
+            <artifactId>reactive-streams</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.github.ooo1208</groupId>
-            <artifactId>ooo1208-application</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-web</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.projectreactor</groupId>
-            <artifactId>reactor-core</artifactId>
+            <artifactId>ooo1208-domain</artifactId>
         </dependency>
     </dependencies>
 

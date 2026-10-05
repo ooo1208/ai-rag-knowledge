@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Configuration;
 /**
  * Redis 客户端，使用 Redisson <a href="https://github.com/redisson/redisson">Redisson</a>
  *
+ * boot 层配置只负责创建连接客户端，具体标签读写由 infrastructure 适配器负责。
  */
 @Configuration
 @EnableConfigurationProperties(RedisClientConfigProperties.class)

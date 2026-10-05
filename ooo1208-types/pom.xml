@@ -9,27 +9,20 @@
         <version>1.0</version>
     </parent>
 
-    <!-- 入口适配层：HTTP Controller、请求 DTO 和接口响应。 -->
-    <artifactId>ooo1208-trigger</artifactId>
+    <!-- 预留的跨模块公共类型层，目前不承载聊天业务。 -->
+    <artifactId>ooo1208-types</artifactId>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
+
     <dependencies>
         <dependency>
-            <groupId>io.github.ooo1208</groupId>
-            <artifactId>ooo1208-application</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-web</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.projectreactor</groupId>
-            <artifactId>reactor-core</artifactId>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
-
 </project>

@@ -3,10 +3,11 @@ server:
 
 spring:
   datasource:
+    # 连接信息支持环境变量覆盖，避免把真实凭证写入仓库。
     driver-class-name: org.postgresql.Driver
-    username: postgres
-    password: postgres
-    url: jdbc:postgresql://192.168.23.100:15432/ai-rag-knowledge
+    username: ${POSTGRES_USERNAME:postgres}
+    password: ${POSTGRES_PASSWORD:postgres}
+    url: ${POSTGRES_URL:jdbc:postgresql://192.168.23.100:15432/ai-rag-knowledge}
     type: com.zaxxer.hikari.HikariDataSource
     # hikari连接池配置
     hikari:
@@ -28,12 +29,12 @@ spring:
       connection-test-query: SELECT 1
   ai:
     openai:
-      base-url: https://api.openai.com/v1
-      api-key: sk-xxxxxxxxxxxxxxxxxxxx
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+      api-key: ${OPENAI_API_KEY:}
       embedding:
         model: text-embedding-ada-002
     ollama:
-      base-url: http://192.168.23.100:11434
+      base-url: ${OLLAMA_BASE_URL:http://192.168.23.100:11434}
       embedding:
         options:
           num-batch: 512
@@ -45,8 +46,8 @@ spring:
 redis:
   sdk:
     config:
-      host: 192.168.23.100
-      port: 16379
+      host: ${REDIS_HOST:192.168.23.100}
+      port: ${REDIS_PORT:16379}
       pool-size: 10
       min-idle-size: 5
       idle-timeout: 30000

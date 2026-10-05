@@ -3,3 +3,11 @@ spring:
     name: ai-rag-knowledge
   profiles:
     active: dev
+
+app:
+  # Phase 0 的系统预置模型配置；后续由数据库模型目录替代。
+  chat:
+    ollama:
+      model: deepseek-r1:1.5b
+    openai-compatible:
+      model: gpt-4o-mini

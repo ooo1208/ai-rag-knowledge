@@ -9,14 +9,36 @@
         <version>1.0</version>
     </parent>
 
-    <artifactId>ooo1208-app</artifactId>
+    <!-- 启动层：组装所有模块并生成最终 Spring Boot JAR。 -->
+    <artifactId>ooo1208-boot</artifactId>
 
     <packaging>jar</packaging>
 
     <dependencies>
         <dependency>
+            <groupId>io.github.ooo1208</groupId>
+            <artifactId>ooo1208-application</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.ooo1208</groupId>
+            <artifactId>ooo1208-domain</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.ooo1208</groupId>
+            <artifactId>ooo1208-infrastructure</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -86,7 +108,7 @@
     </dependencies>
 
     <build>
-        <finalName>xfg-dev-tech-app</finalName>
+        <finalName>ai-rag-knowledge</finalName>
         <resources>
             <resource>
                 <directory>src/main/resources</directory>
