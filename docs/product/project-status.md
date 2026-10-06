@@ -144,7 +144,7 @@ ooo1208-app/target/ai-rag-knowledge.jar
 
 - 先固定一个服务端配置的 `SEARCH_ONLY` provider，不允许聊天请求传任意 URL。
 - 搜索请求和所有重定向都要通过 `OutboundUrlValidator`，增加超时、响应大小和域名白名单。
-- 已提供默认关闭的 Tavily-compatible `GET /api/v1/web-search`；仍待增加响应字节级限制、固定 provider 健康检查、缓存和权限审计。
+- 已提供默认关闭的 Tavily-compatible `GET /api/v1/web-search`，并限制超时、响应字节数和重定向；仍待增加固定 provider 健康检查、缓存和权限审计。
 - Ollama 使用本地模型列表接口；OpenAI Compatible 先尝试 `/models`，不支持时允许手工录入。
 - 同步结果写入缓存和数据库，失败不能删除上一次可用模型。
 

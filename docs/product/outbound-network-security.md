@@ -32,7 +32,7 @@ HTTP 出站适配器共用的第一层校验工具：
    `allowedHosts`，URL 只由管理员写入；
 2. MCP 工具同步和联网搜索适配器在真正发起请求前调用
    `OutboundUrlValidator.validatePublicInternet(...)`；
-3. 联网搜索第一版已固定 Tavily-compatible provider、超时并禁止自动跟随重定向；
-   仍需补充响应字节级上限，未来若允许重定向则每个目标必须重新通过同一校验；
+3. 联网搜索第一版已固定 Tavily-compatible provider、超时、响应字节级上限并禁止自动
+   跟随重定向；未来若允许重定向则每个目标必须重新通过同一校验；
 4. 将公网搜索限定为固定的 `SEARCH_ONLY` 工具，写操作和任意 MCP `stdio` 命令
    需要单独的审批和白名单。

@@ -126,6 +126,6 @@ OpenAI Compatible 的 `baseUrl` 允许历史配置带 `/v1`，基础设施层在
 
 联网能力先落成 `NetworkSearchPort` 和 Tavily-compatible 基础设施适配器，默认关闭。HTTP 入口只接收查询文本和结果数量，Provider endpoint、凭证引用、超时和上限由服务端配置管理；搜索结果返回 `untrusted=true`，不能直接当作系统指令或 MCP 参数。
 
-出站请求在发送前通过 `OutboundUrlValidator`，JDK HTTP 客户端不自动跟随重定向。响应字节级上限、Provider 健康检查、缓存、权限审计和聊天上下文接入属于后续工作。这样“能联网搜索”与“允许任意 URL 抓取”保持明确区分。
+出站请求在发送前通过 `OutboundUrlValidator`，JDK HTTP 客户端不自动跟随重定向，响应体有字节级上限。Provider 健康检查、缓存和权限审计属于后续工作。这样“能联网搜索”与“允许任意 URL 抓取”保持明确区分。
 
 聊天请求的 `webSearch` 是显式开关，默认关闭；开启后只把服务端搜索结果作为不可信上下文交给 PromptAssembler，不能让模型直接访问任意 URL，也不会把搜索结果当作系统指令。

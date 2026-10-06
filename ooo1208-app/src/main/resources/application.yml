@@ -26,3 +26,4 @@ app:
     api-key: ${TAVILY_API_KEY:}
     timeout-ms: ${WEB_SEARCH_TIMEOUT_MS:5000}
     max-results: ${WEB_SEARCH_MAX_RESULTS:10}
+    max-response-bytes: ${WEB_SEARCH_MAX_RESPONSE_BYTES:524288}

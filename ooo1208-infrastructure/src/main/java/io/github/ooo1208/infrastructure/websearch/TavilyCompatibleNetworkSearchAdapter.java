@@ -9,6 +9,10 @@ import io.github.ooo1208.infrastructure.config.CredentialResolver;
 import io.github.ooo1208.infrastructure.network.OutboundUrlValidator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.client.ClientHttpRequestInterceptor;
+import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
@@ -18,6 +22,9 @@ import org.springframework.http.client.JdkClientHttpRequestFactory;
 
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.io.FilterInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -43,12 +50,15 @@ public final class TavilyCompatibleNetworkSearchAdapter
     private static final int MAX_TIMEOUT_MILLIS = 30_000;
     private static final int MAX_SNIPPET_LENGTH = 2_000;
     private static final int MAX_TITLE_LENGTH = 300;
+    private static final int MIN_RESPONSE_BYTES = 4_096;
+    private static final int MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
 
     private final boolean enabled;
     private final String endpoint;
     private final String credentialRef;
     private final int timeoutMillis;
     private final int configuredMaxResults;
+    private final int maxResponseBytes;
     private final CredentialResolver credentialResolver;
 
     public TavilyCompatibleNetworkSearchAdapter(
@@ -57,6 +67,7 @@ public final class TavilyCompatibleNetworkSearchAdapter
             @Value("${app.network-search.credential-ref:config:app.network-search.api-key}") String credentialRef,
             @Value("${app.network-search.timeout-ms:5000}") int timeoutMillis,
             @Value("${app.network-search.max-results:10}") int configuredMaxResults,
+            @Value("${app.network-search.max-response-bytes:524288}") int maxResponseBytes,
             CredentialResolver credentialResolver
     ) {
         this.enabled = enabled;
@@ -78,11 +89,19 @@ public final class TavilyCompatibleNetworkSearchAdapter
             throw new IllegalArgumentException(
                     "network search max-results must be between "
                             + NetworkSearchQuery.MIN_RESULTS + " and "
-                            + NetworkSearchQuery.MAX_RESULTS
+                    + NetworkSearchQuery.MAX_RESULTS
+            );
+        }
+        if (maxResponseBytes < MIN_RESPONSE_BYTES
+                || maxResponseBytes > MAX_RESPONSE_BYTES) {
+            throw new IllegalArgumentException(
+                    "network search max-response-bytes must be between "
+                            + MIN_RESPONSE_BYTES + " and " + MAX_RESPONSE_BYTES
             );
         }
         this.timeoutMillis = timeoutMillis;
         this.configuredMaxResults = configuredMaxResults;
+        this.maxResponseBytes = maxResponseBytes;
         this.credentialResolver = Objects.requireNonNull(credentialResolver);
     }
 
@@ -123,6 +142,8 @@ public final class TavilyCompatibleNetworkSearchAdapter
 
         RestClient restClient = RestClient.builder()
                 .requestFactory(requestFactory())
+                .requestInterceptors(interceptors ->
+                        interceptors.add(responseSizeInterceptor()))
                 .build();
 
         TavilySearchResponse response;
@@ -165,6 +186,20 @@ public final class TavilyCompatibleNetworkSearchAdapter
                 new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(Duration.ofMillis(timeoutMillis));
         return requestFactory;
+    }
+
+    private ClientHttpRequestInterceptor responseSizeInterceptor() {
+        return (request, body, execution) -> {
+            ClientHttpResponse response = execution.execute(request, body);
+            long contentLength = response.getHeaders().getContentLength();
+            if (contentLength > maxResponseBytes) {
+                response.close();
+                throw new IOException(
+                        "web search provider response exceeds configured limit"
+                );
+            }
+            return new BoundedClientHttpResponse(response, maxResponseBytes);
+        };
     }
 
     private List<NetworkSearchResult> mapResults(
@@ -245,5 +280,87 @@ public final class TavilyCompatibleNetworkSearchAdapter
             String url,
             String content
     ) {
+    }
+
+    /**
+     * 限制响应流的读取上限，避免 Provider 返回异常大正文占满进程内存。
+     */
+    private static final class BoundedClientHttpResponse
+            implements ClientHttpResponse {
+
+        private final ClientHttpResponse delegate;
+        private final int maxBytes;
+
+        private BoundedClientHttpResponse(
+                ClientHttpResponse delegate,
+                int maxBytes
+        ) {
+            this.delegate = delegate;
+            this.maxBytes = maxBytes;
+        }
+
+        @Override
+        public HttpStatusCode getStatusCode() throws IOException {
+            return delegate.getStatusCode();
+        }
+
+        @Override
+        public String getStatusText() throws IOException {
+            return delegate.getStatusText();
+        }
+
+        @Override
+        public HttpHeaders getHeaders() {
+            return delegate.getHeaders();
+        }
+
+        @Override
+        public InputStream getBody() throws IOException {
+            return new BoundedInputStream(delegate.getBody(), maxBytes);
+        }
+
+        @Override
+        public void close() {
+            delegate.close();
+        }
+    }
+
+    private static final class BoundedInputStream extends FilterInputStream {
+
+        private final int maxBytes;
+        private int bytesRead;
+
+        private BoundedInputStream(InputStream delegate, int maxBytes) {
+            super(delegate);
+            this.maxBytes = maxBytes;
+        }
+
+        @Override
+        public int read() throws IOException {
+            int value = super.read();
+            if (value >= 0) {
+                increment(1);
+            }
+            return value;
+        }
+
+        @Override
+        public int read(byte[] bytes, int offset, int length)
+                throws IOException {
+            int count = super.read(bytes, offset, length);
+            if (count > 0) {
+                increment(count);
+            }
+            return count;
+        }
+
+        private void increment(int count) throws IOException {
+            if (bytesRead > maxBytes - count) {
+                throw new IOException(
+                        "web search provider response exceeds configured limit"
+                );
+            }
+            bytesRead += count;
+        }
     }
 }
