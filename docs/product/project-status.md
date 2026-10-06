@@ -22,7 +22,7 @@ Phase 0 和 Phase 1 的核心代码已经落地：聊天和 RAG 都有统一的 
 
 - `POST /api/v1/chat`：非流式聊天。
 - `POST /api/v1/chat/stream`：流式聊天。
-- 请求只包含 `modelConfigId`、`message` 和可选 `ragTag`。
+- 请求包含 `modelConfigId`、`message`，以及可选 `ragTag`、`webSearch`；`webSearch` 默认 `false`，开启时只调用服务端固定的搜索 Provider。
 - `ChatApplicationService` 统一编排模型配置解析、RAG 检索、Prompt 组装和模型调用。
 - `ChatGenerationPort` 隔离 Ollama 和 OpenAI Compatible 实现。
 - DeepSeek 如果使用 OpenAI 兼容协议，复用 OpenAI Compatible 适配器，不新增 DeepSeekController。

@@ -14,8 +14,20 @@ import io.github.ooo1208.domain.modelcatalog.ModelConfigId;
 public record StreamChatCommand (
         ModelConfigId modelConfigId,
         String message,
-        String ragTag
+        String ragTag,
+        boolean webSearch
 ) {
+    /**
+     * 兼容没有联网搜索开关的旧调用方。
+     */
+    public StreamChatCommand(
+            ModelConfigId modelConfigId,
+            String message,
+            String ragTag
+    ) {
+        this(modelConfigId, message, ragTag, false);
+    }
+
     public StreamChatCommand {
         if (modelConfigId == null) {
             throw new IllegalArgumentException("modelConfigId must not be null");

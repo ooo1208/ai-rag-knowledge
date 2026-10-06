@@ -86,6 +86,23 @@
 - 新增 `GET /api/v1/web-search`，请求方不能传 URL、API Key 或抓取选项；结果统一带 `untrusted=true`。
 - 使用 `OutboundUrlValidator` 校验 Provider 地址，并使用 JDK HTTP 客户端禁止自动跟随重定向。
 
+## 2026-10-06：聊天可选联网上下文
+
+### 行动
+
+- `ChatRequest` / `StreamChatCommand` 增加向后兼容的 `webSearch` 开关，缺省为 `false`。
+- `ChatApplicationService` 在开关开启时调用固定 `NetworkSearchPort`，将结果交给 `PromptAssembler`。
+- Prompt 对联网结果增加不可信来源和禁止执行外部指令的边界，旧聊天请求不触发任何联网调用。
+
+### 结果
+
+- 普通聊天、RAG 聊天和流式聊天的旧请求结构保持兼容；联网 Provider 未启用时返回明确的 `503`。
+- 新增 Prompt 组装单元测试，验证联网结果不会绕过不可信上下文标记。
+
+### 下一次行动
+
+补充 web-search Provider 的响应字节级限制、权限审计和缓存，再实现 MCP 工具实际执行前的审批/调用记录。
+
 ### 结果
 
 - 默认配置不会对外发起联网请求，未启用时接口返回 `503`；启用后才解析凭证并访问固定 Provider。

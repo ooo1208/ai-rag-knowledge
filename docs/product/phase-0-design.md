@@ -127,7 +127,8 @@ Content-Type: application/json
 {
   "modelConfigId": "mc_001",
   "message": "你好",
-  "conversationId": "conv_001"
+  "conversationId": "conv_001",
+  "webSearch": false
 }
 ```
 
@@ -138,7 +139,8 @@ Content-Type: application/json
   "modelConfigId": "mc_001",
   "message": "项目如何启动？",
   "ragTag": "project-a",
-  "conversationId": "conv_001"
+  "conversationId": "conv_001",
+  "webSearch": false
 }
 ```
 

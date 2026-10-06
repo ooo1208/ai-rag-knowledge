@@ -4,6 +4,7 @@ import io.github.ooo1208.application.chat.port.out.ChatGenerationPort;
 import io.github.ooo1208.application.chat.port.out.ModelConfigQueryPort;
 import io.github.ooo1208.application.chat.port.out.ModelConnectionTestPort;
 import io.github.ooo1208.application.chat.port.out.RagRetrieverPort;
+import io.github.ooo1208.application.websearch.port.out.NetworkSearchPort;
 import io.github.ooo1208.application.chat.service.PromptAssembler;
 import io.github.ooo1208.application.chat.service.ChatApplicationService;
 import io.github.ooo1208.application.chat.service.ModelConnectionTestApplicationService;
@@ -29,13 +30,15 @@ public class ChatApplicationConfiguration {
             ModelConfigQueryPort modelConfigQueryPort,
             RagRetrieverPort ragRetrieverPort,
             PromptAssembler promptAssembler,
-            List<ChatGenerationPort> chatGenerationPorts
+            List<ChatGenerationPort> chatGenerationPorts,
+            NetworkSearchPort networkSearchPort
     ) {
         return new ChatApplicationService(
                 modelConfigQueryPort,
                 ragRetrieverPort,
                 promptAssembler,
-                chatGenerationPorts
+                chatGenerationPorts,
+                networkSearchPort
         );
     }
 

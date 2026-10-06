@@ -11,6 +11,9 @@ import io.github.ooo1208.application.chat.port.in.StreamChatUseCase;
 import io.github.ooo1208.application.chat.port.out.ChatGenerationPort;
 import io.github.ooo1208.application.chat.port.out.ModelConfigQueryPort;
 import io.github.ooo1208.application.chat.port.out.RagRetrieverPort;
+import io.github.ooo1208.application.websearch.model.NetworkSearchQuery;
+import io.github.ooo1208.application.websearch.model.NetworkSearchResult;
+import io.github.ooo1208.application.websearch.port.out.NetworkSearchPort;
 import io.github.ooo1208.domain.modelcatalog.ProviderType;
 import org.reactivestreams.Publisher;
 
@@ -30,12 +33,36 @@ public final class ChatApplicationService
     private final RagRetrieverPort ragRetrieverPort;
     private final PromptAssembler promptAssembler;
     private final List<ChatGenerationPort> chatGenerationPorts;
+    private final NetworkSearchPort networkSearchPort;
 
+    /**
+     * 兼容还未装配联网端口的 application 测试或离线调用方。
+     */
     public ChatApplicationService(
             ModelConfigQueryPort modelConfigQueryPort,
             RagRetrieverPort ragRetrieverPort,
             PromptAssembler promptAssembler,
             List<ChatGenerationPort> chatGenerationPorts
+    ) {
+        this(
+                modelConfigQueryPort,
+                ragRetrieverPort,
+                promptAssembler,
+                chatGenerationPorts,
+                query -> {
+                    throw new IllegalStateException(
+                            "NetworkSearchPort is not configured"
+                    );
+                }
+        );
+    }
+
+    public ChatApplicationService(
+            ModelConfigQueryPort modelConfigQueryPort,
+            RagRetrieverPort ragRetrieverPort,
+            PromptAssembler promptAssembler,
+            List<ChatGenerationPort> chatGenerationPorts,
+            NetworkSearchPort networkSearchPort
     ) {
         this.modelConfigQueryPort =
                 Objects.requireNonNull(modelConfigQueryPort);
@@ -46,6 +73,7 @@ public final class ChatApplicationService
         this.chatGenerationPorts = List.copyOf(
                 Objects.requireNonNull(chatGenerationPorts)
         );
+        this.networkSearchPort = Objects.requireNonNull(networkSearchPort);
     }
 
     @Override
@@ -89,10 +117,17 @@ public final class ChatApplicationService
         List<RetrievedDocument> documents =
                 retrieveDocuments(command, modelConfig);
 
+        List<NetworkSearchResult> webSearchResults = command.webSearch()
+                ? networkSearchPort.search(
+                NetworkSearchQuery.of(command.message())
+        )
+                : List.of();
+
         ChatPrompt prompt = promptAssembler.assemble(
                 command.message(),
                 modelConfig,
-                documents
+                documents,
+                webSearchResults
         );
 
         return new PreparedChat(prompt, modelConfig);

@@ -7,8 +7,20 @@ package io.github.ooo1208.trigger.http;
 public record ChatRequest(
         String modelConfigId,
         String message,
-        String ragTag
+        String ragTag,
+        boolean webSearch
 ) {
+
+    /**
+     * 兼容旧的三字段 Java 调用方；HTTP JSON 缺少 webSearch 时也默认为 false。
+     */
+    public ChatRequest(
+            String modelConfigId,
+            String message,
+            String ragTag
+    ) {
+        this(modelConfigId, message, ragTag, false);
+    }
 
     public ChatRequest {
         if (modelConfigId == null || modelConfigId.isBlank()) {

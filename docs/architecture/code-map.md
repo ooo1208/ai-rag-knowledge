@@ -113,6 +113,7 @@ ChatController
   -> ChatApplicationService
   -> ModelConfigQueryPort
   -> RagRetrieverPort（有 ragTag 时）
+  -> NetworkSearchPort（有 webSearch=true 时）
   -> PromptAssembler
   -> ChatGenerationPort
   -> OllamaChatGenerationAdapter / OpenAiCompatibleChatGenerationAdapter

@@ -5,6 +5,8 @@ import io.github.ooo1208.application.chat.model.ChatChunk;
 import io.github.ooo1208.application.chat.model.ChatResponse;
 import io.github.ooo1208.application.chat.port.in.CompleteChatUseCase;
 import io.github.ooo1208.application.chat.port.in.StreamChatUseCase;
+import io.github.ooo1208.application.websearch.exception.NetworkSearchDisabledException;
+import io.github.ooo1208.application.websearch.exception.NetworkSearchProviderException;
 import io.github.ooo1208.domain.modelcatalog.ModelConfigId;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -12,6 +14,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 import reactor.core.publisher.Flux;
 
 import java.util.Objects;
@@ -43,7 +47,24 @@ public class ChatController {
     public ChatResponse complete(
             @RequestBody ChatRequest request
     ) {
-        return completeChatUseCase.complete(toCommand(request));
+        try {
+            return completeChatUseCase.complete(toCommand(request));
+        } catch (NetworkSearchDisabledException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "web search provider is disabled"
+            );
+        } catch (NetworkSearchProviderException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "web search provider is unavailable"
+            );
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    exception.getMessage()
+            );
+        }
     }
 
     @PostMapping(
@@ -54,14 +75,32 @@ public class ChatController {
     public Flux<ChatChunk> stream(
             @RequestBody ChatRequest request
     ) {
-        return Flux.from(streamChatUseCase.stream(toCommand(request)));
+        try {
+            return Flux.from(streamChatUseCase.stream(toCommand(request)));
+        } catch (NetworkSearchDisabledException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "web search provider is disabled"
+            );
+        } catch (NetworkSearchProviderException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "web search provider is unavailable"
+            );
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    exception.getMessage()
+            );
+        }
     }
 
     private StreamChatCommand toCommand(ChatRequest request) {
         return new StreamChatCommand(
                 new ModelConfigId(request.modelConfigId()),
                 request.message(),
-                request.ragTag()
+                request.ragTag(),
+                request.webSearch()
         );
     }
 }
