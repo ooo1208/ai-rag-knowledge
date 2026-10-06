@@ -1,6 +1,5 @@
 package io.github.ooo1208.infrastructure.network;
 
-import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -79,6 +78,11 @@ public final class OutboundUrlValidator {
         }
 
         URI uri = parse(rawUrl.trim());
+        if (uri.getScheme() == null || uri.getScheme().isBlank()) {
+            throw new IllegalArgumentException(
+                    "outbound URL must include a scheme"
+            );
+        }
         String scheme = uri.getScheme().toLowerCase(java.util.Locale.ROOT);
         if (!scheme.equals("http") && !scheme.equals("https")) {
             throw new IllegalArgumentException(
@@ -226,8 +230,8 @@ public final class OutboundUrlValidator {
             return first == 0
                     || (first & 0xfe) == 0xfc
                     || first == 0xfe && (second & 0xc0) == 0x80
-                    || address instanceof Inet6Address
-                    && address.isLoopbackAddress();
+                    || first == 0x20 && second == 0x01
+                    && bytes[2] == 0x0d && bytes[3] == (byte) 0xb8;
         }
 
         return false;

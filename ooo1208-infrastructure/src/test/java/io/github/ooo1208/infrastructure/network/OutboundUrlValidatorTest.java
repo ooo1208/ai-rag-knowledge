@@ -46,6 +46,26 @@ class OutboundUrlValidatorTest {
     }
 
     @Test
+    void publicInternetRejectsMissingScheme() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> OutboundUrlValidator.validatePublicInternet(
+                        "example.com"
+                )
+        );
+    }
+
+    @Test
+    void publicInternetRejectsIpv6DocumentationRange() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> OutboundUrlValidator.validatePublicInternet(
+                        "https://[2001:db8::1]"
+                )
+        );
+    }
+
+    @Test
     void publicInternetRejectsQueryAndNonStandardPort() {
         assertThrows(
                 IllegalArgumentException.class,
