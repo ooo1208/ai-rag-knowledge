@@ -6,7 +6,7 @@
 
 Phase 0 和 Phase 1 的核心代码已经落地：聊天和 RAG 都有统一的 application 用例，HTTP 层不再直接编排模型或向量库，Ollama 和 OpenAI Compatible 通过出站适配器接入。
 
-这一版已经完成模型目录数据库化和动态客户端的第一版：Flyway 创建三张模型目录表，JDBC 适配器读取启用的模型预设，启动时补齐两个系统预置项，聊天适配器会按解析结果创建对应的 Ollama 或 OpenAI Compatible 客户端。它仍不是最终的动态配置产品，管理员 API、连接测试和客户端缓存策略还没有完成。
+这一版已经完成模型目录数据库化、动态客户端和连接测试的第一版：Flyway 创建三张模型目录表，JDBC 适配器读取启用的模型预设，启动时补齐两个系统预置项，聊天适配器会按解析结果创建对应的 Ollama 或 OpenAI Compatible 客户端，并提供基于已登记 `modelConfigId` 的轻量连接探针。它仍不是最终的动态配置产品，管理员 API、权限控制和客户端缓存策略还没有完成。
 
 ## 已完成
 
@@ -45,6 +45,7 @@ Phase 0 和 Phase 1 的核心代码已经落地：聊天和 RAG 都有统一的 
 - `InMemoryModelConfigQueryAdapter` 保留为显式 `in-memory-model-config` profile 下的过渡实现。
 - `ChatModelFactory` 使用解析结果中的 `baseUrl` 和 `credentialRef` 创建每次调用所需的客户端；凭证只从外部配置解析，不从数据库读取明文。
 - OpenAI Compatible 的 base URL 会统一兼容带或不带 `/v1` 的写法，避免与 Spring AI 默认路径重复拼接。
+- `POST /api/v1/model-connections/test` 只接受已登记且启用的 `modelConfigId`，Ollama 探测模型列表，OpenAI Compatible 探测 `/v1/models`，结果区分认证、网络、服务不可用和模型不存在。
 
 ### 配置和可读性
 
@@ -82,7 +83,7 @@ ooo1208-app/target/ai-rag-knowledge.jar
 
 这些功能不能被误认为已经完成：
 
-1. 管理员新增、编辑、启用、禁用和测试模型连接。
+1. 管理员新增、编辑、启用、禁用模型连接，并把连接测试纳入启用前流程。
 2. 用户自定义 API Key、密钥加密、Secret 引用、轮换和权限控制。
 3. 按服务商自动同步模型列表。
 4. 前端按服务商分组展示模型、搜索、收藏和最近使用。
@@ -99,12 +100,13 @@ ooo1208-app/target/ai-rag-knowledge.jar
 - 当前只写入系统预置配置，不提供管理员 CRUD。
 - 连接的 `credentialRef` 只作为引用保存，不保存明文 API Key。
 
-### Step 2：连接测试和动态客户端工厂（动态工厂第一版已完成）
+### Step 2：连接测试和动态客户端工厂（第一版已完成）
 
 - 已新增 `ChatModelFactory`，根据解析后的 `providerType`、`baseUrl` 和 `credentialRef` 创建 Ollama 或 OpenAI Compatible 客户端；`upstreamModelId` 仍由请求 Prompt 的 options 使用。
 - 凭证引用当前支持 `config:` 方案，实际值从 Spring `Environment` 获取，数据库和日志不保存明文 Key。
-- 待补连接测试接口，并在启用模型前完成可用性校验。
-- 待补认证失败、网络失败、模型不存在和服务商暂时不可用的统一错误分类。
+- 已新增 `POST /api/v1/model-connections/test`，只测试已登记模型配置，不接受任意外部 URL。
+- 已实现认证失败、网络失败、模型不存在、服务商暂时不可用和探针不支持的结果分类。
+- 待补管理员权限、禁用连接测试、统一异常 HTTP 映射，以及在启用模型前强制完成测试。
 - 后续再增加按连接维度的客户端缓存和失效策略，避免在每次请求中重复创建客户端。
 
 ### Step 3：提供模型目录 API

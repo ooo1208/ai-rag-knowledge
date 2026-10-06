@@ -25,7 +25,7 @@ public final class OpenAiApiSupport {
                 .build();
     }
 
-    static String normalizeBaseUrl(String baseUrl) {
+    public static String normalizeBaseUrl(String baseUrl) {
         String normalized = baseUrl.trim();
         while (normalized.endsWith("/")) {
             normalized = normalized.substring(0, normalized.length() - 1);

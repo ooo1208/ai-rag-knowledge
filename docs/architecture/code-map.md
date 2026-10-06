@@ -33,6 +33,7 @@ ooo1208-trigger      ooo1208-infrastructure
 - `chat/model/ChatResponse`：非流式输出结果。
 - `chat/model/ResolvedModelConfig`：根据 `modelConfigId` 解析出的调用配置。
 - `chat/service/ChatApplicationService`：统一编排配置解析、RAG、Prompt 和模型调用。
+- `chat/service/ModelConnectionTestApplicationService`：复用模型配置解析链路，编排连接测试用例。
 - `chat/service/PromptAssembler`：拼装系统提示词、知识库内容和用户问题。
 - `chat/port/in/*`：Controller 可以调用的入站用例。
 - `chat/port/out/*`：模型配置、RAG 和模型调用的出站端口。
@@ -52,6 +53,7 @@ ooo1208-trigger      ooo1208-infrastructure
 - `chat/*Adapter`：把统一聊天模型转换为 Ollama 或 OpenAI Compatible SDK 调用。
 - `chat/ChatModelFactory`：按本次解析出的连接地址和凭证引用创建聊天客户端。
 - `config/OpenAiApiSupport`：规范化 OpenAI Compatible base URL，兼容带或不带 `/v1` 的配置。
+- `modelcatalog/ModelConnectionTestAdapter`：通过 Ollama 模型列表或 OpenAI Compatible `/v1/models` 进行轻量探针。
 - `modelcatalog/JdbcModelConfigQueryAdapter`：从 PostgreSQL 模型目录读取启用的模型预设。
 - `modelcatalog/InMemoryModelConfigQueryAdapter`：仅在 `in-memory-model-config` profile 下作为过渡实现。
 - `rag/PgVectorRagRetrieverAdapter`：PgVector 检索。
@@ -65,8 +67,10 @@ ooo1208-trigger      ooo1208-infrastructure
 入口适配层只负责协议转换。
 
 - `ChatController`：`POST /api/v1/chat` 和 `/api/v1/chat/stream`。
+- `ModelConnectionController`：`POST /api/v1/model-connections/test`。
 - `RagController`：知识库上传、Git 分析和标签查询。
 - `ChatRequest`：聊天 HTTP 请求 DTO。
+- `ModelConnectionTestRequest/Response`：连接测试请求和稳定的 HTTP 结果 DTO。
 - `ApiResponse`：HTTP 返回包装对象。
 
 ### `ooo1208-app`
@@ -96,4 +100,4 @@ ChatController
 
 ## 当前阶段边界
 
-当前数据库模型目录已经具备初始表结构、读取适配器和动态聊天客户端工厂，启动时会把两个系统预置配置写入空数据库。管理员配置 API、连接测试、用户自定义 API Key、模型自动发现和前端模型选择器属于后续阶段。
+当前数据库模型目录已经具备初始表结构、读取适配器、动态聊天客户端工厂和已登记配置的轻量连接测试。管理员 CRUD、权限控制、用户自定义 API Key、模型自动发现和前端模型选择器属于后续阶段。

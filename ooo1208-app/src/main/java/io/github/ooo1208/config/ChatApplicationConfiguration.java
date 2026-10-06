@@ -2,9 +2,11 @@ package io.github.ooo1208.config;
 
 import io.github.ooo1208.application.chat.port.out.ChatGenerationPort;
 import io.github.ooo1208.application.chat.port.out.ModelConfigQueryPort;
+import io.github.ooo1208.application.chat.port.out.ModelConnectionTestPort;
 import io.github.ooo1208.application.chat.port.out.RagRetrieverPort;
 import io.github.ooo1208.application.chat.service.PromptAssembler;
 import io.github.ooo1208.application.chat.service.ChatApplicationService;
+import io.github.ooo1208.application.chat.service.ModelConnectionTestApplicationService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -34,6 +36,18 @@ public class ChatApplicationConfiguration {
                 ragRetrieverPort,
                 promptAssembler,
                 chatGenerationPorts
+        );
+    }
+
+    @Bean
+    public ModelConnectionTestApplicationService
+    modelConnectionTestApplicationService(
+            ModelConfigQueryPort modelConfigQueryPort,
+            ModelConnectionTestPort modelConnectionTestPort
+    ) {
+        return new ModelConnectionTestApplicationService(
+                modelConfigQueryPort,
+                modelConnectionTestPort
         );
     }
 }

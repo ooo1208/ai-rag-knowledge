@@ -1,6 +1,6 @@
 # 动态模型平台产品路线图
 
-> 当前实现状态：Phase 0 和 Phase 1 的核心代码已完成，Phase 2 已完成数据库模型目录和动态客户端的第一版链路，详情见 [`project-status.md`](./project-status.md)。管理员配置、连接测试和模型发现仍未完成。
+> 当前实现状态：Phase 0 和 Phase 1 的核心代码已完成，Phase 2 已完成数据库模型目录、动态客户端和连接测试的第一版链路，详情见 [`project-status.md`](./project-status.md)。管理员配置、权限和模型发现仍未完成。
 
 ## 1. 产品目标
 
@@ -151,7 +151,7 @@ POST /api/v1/chat/stream
 
 1. 增加 ProviderConnection、ModelBinding、ModelPreset 表。
 2. 将 DeepSeek、Ollama、OpenAI Compatible 做成系统预置模板。
-3. 增加连接测试接口。
+3. 增加连接测试接口（第一版已完成，管理员权限和启用前强制校验待补）。
 4. 增加启用、禁用、删除和更新连接能力。
 5. 支持手动添加模型 ID。
 6. 模型 ID 与展示名称分离。

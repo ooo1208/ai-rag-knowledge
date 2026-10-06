@@ -39,6 +39,24 @@
 
 增加管理员连接测试用例和按连接配置缓存客户端的失效策略。
 
+## 2026-10-06：模型连接测试第一版
+
+### 行动
+
+- 新增 `TestModelConnectionUseCase` 和 `ModelConnectionTestPort`，复用聊天的模型目录解析链路。
+- 新增 `POST /api/v1/model-connections/test`，只接受已有 `modelConfigId`，不接受任意 URL 或明文 API Key。
+- Ollama 使用模型列表接口，OpenAI Compatible 使用 `/v1/models`，并统一返回连接状态分类。
+
+### 结果
+
+- 连接测试不会调用模型生成内容，只进行轻量探针。
+- `mvn -pl ooo1208-app -am package -DskipTests` 通过。
+- 管理员认证、禁用连接测试、启用前强制校验和统一 HTTP 异常映射仍未完成。
+
+### 下一次行动
+
+增加管理员模型目录 CRUD 和权限边界，再把连接测试接入启用流程。
+
 ## 2026-10-03：统一聊天与 RAG 架构
 
 ### 行动

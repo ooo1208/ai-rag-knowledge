@@ -101,6 +101,6 @@ RAG 检索不生成 Prompt，PromptAssembler 不访问向量库，模型适配�
 
 `provider_connection`、`model_binding` 和 `model_preset` 通过 Flyway 管理初始表结构，聊天应用继续依赖 `ModelConfigQueryPort`，由 infrastructure 的 JDBC 适配器查询启用配置。`InMemoryModelConfigQueryAdapter` 只作为显式 profile 下的过渡实现。
 
-启动时只补齐不存在的系统预置配置，不覆盖数据库中已有的连接、模型和预设。聊天适配器通过 `ChatModelFactory` 按本次解析结果创建客户端；启动时的模型 Bean 仍保留给 Embedding 和兼容场景使用。连接测试、客户端缓存和失效策略属于后续阶段。
+启动时只补齐不存在的系统预置配置，不覆盖数据库中已有的连接、模型和预设。聊天适配器通过 `ChatModelFactory` 按本次解析结果创建客户端；启动时的模型 Bean 仍保留给 Embedding 和兼容场景使用。连接测试第一版通过已登记 `modelConfigId` 的轻量探针提供，管理员权限、客户端缓存和失效策略属于后续阶段。
 
 OpenAI Compatible 的 `baseUrl` 允许历史配置带 `/v1`，基础设施层在构造 Spring AI `OpenAiApi` 时统一去掉末尾版本路径，使用 SDK 默认的 `/v1/chat/completions` 和 `/v1/embeddings` 路径，避免重复拼接。
