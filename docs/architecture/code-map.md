@@ -93,7 +93,7 @@ ooo1208-trigger      ooo1208-infrastructure
 - `ChatController`：`POST /api/v1/chat` 和 `/api/v1/chat/stream`。
 - `ModelConnectionController`：`POST /api/v1/model-connections/test`。
 - `ModelToolController`：工具目录、选择预检，以及 `POST /api/v1/model-configs/{modelConfigId}/tools/{toolId}/execute`。
-- `McpToolRequestSizeFilter`：在 MVC JSON 反序列化前限制 MCP 执行请求体，默认 128 KiB。
+- `McpToolRequestSizeFilter`：在 MVC JSON 反序列化前限制 MCP 执行请求体，默认 128 KiB；chunked/未知长度会先做受限缓存，避免 JSON 提前结束留下尾部 padding 旁路。
 - `ModelConfigController`：`GET /api/v1/model-configs`，返回不含凭证和连接地址的模型摘要。
 - `WebSearchController`：`GET /api/v1/web-search`，只接收查询文本和结果数量。
 - `RagController`：知识库上传、Git 分析和标签查询。

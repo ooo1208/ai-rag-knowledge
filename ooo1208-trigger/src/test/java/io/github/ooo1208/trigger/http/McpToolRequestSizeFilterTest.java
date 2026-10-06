@@ -53,6 +53,42 @@ class McpToolRequestSizeFilterTest {
     }
 
     @Test
+    void chunkedBodyWithTrailingPaddingIsRejectedBeforeJsonParsing() throws Exception {
+        McpToolRequestSizeFilter filter = newFilter();
+        MockHttpServletRequest request = chunkedBodyRequest(
+                EXECUTE_PATH,
+                "{\"arguments\":{}}" + "x".repeat(5_000)
+        );
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(
+                request,
+                response,
+                (ignoredRequest, ignoredResponse) -> fail("chain must not run")
+        );
+
+        assertEquals(413, response.getStatus());
+    }
+
+    @Test
+    void encodedExecutePathIsStillProtected() throws Exception {
+        McpToolRequestSizeFilter filter = newFilter();
+        MockHttpServletRequest request = request(
+                "/api/v1/model-configs/demo/tools/read/%65xecute",
+                5_000
+        );
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(
+                request,
+                response,
+                (ignoredRequest, ignoredResponse) -> fail("chain must not run")
+        );
+
+        assertEquals(413, response.getStatus());
+    }
+
+    @Test
     void unrelatedPathKeepsOriginalRequest() throws Exception {
         McpToolRequestSizeFilter filter = newFilter();
         MockHttpServletRequest request = request(
@@ -85,9 +121,16 @@ class McpToolRequestSizeFilterTest {
     }
 
     private MockHttpServletRequest chunkedRequest(String path, int bytes) {
+        return chunkedBodyRequest(path, "x".repeat(bytes));
+    }
+
+    private MockHttpServletRequest chunkedBodyRequest(
+            String path,
+            String body
+    ) {
         return new MockHttpServletRequest("POST", path) {
             {
-                setContent("x".repeat(bytes).getBytes(StandardCharsets.UTF_8));
+                setContent(body.getBytes(StandardCharsets.UTF_8));
             }
 
             @Override

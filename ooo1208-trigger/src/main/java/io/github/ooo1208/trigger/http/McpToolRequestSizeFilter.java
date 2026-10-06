@@ -10,8 +10,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.UriUtils;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
@@ -22,7 +25,8 @@ import java.nio.charset.StandardCharsets;
  *
  * <p>application 层还会限制参数结构和总字符预算，但那些检查发生在
  * MVC 已经读取请求体之后；这里先挡住 Content-Length 明确过大的请求，
- * 并对 chunked 请求提供同样的读取上限。</p>
+ * 并对未知长度请求先做受限缓存，避免 JSON 解析提前结束后仍留下超限
+ * 的尾部数据。</p>
  */
 @Component
 public final class McpToolRequestSizeFilter extends OncePerRequestFilter {
@@ -54,6 +58,14 @@ public final class McpToolRequestSizeFilter extends OncePerRequestFilter {
                 && requestUri.startsWith(contextPath)) {
             requestUri = requestUri.substring(contextPath.length());
         }
+        try {
+            requestUri = requestUri == null
+                    ? null
+                    : UriUtils.decode(requestUri, StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException exception) {
+            // 解码失败时按命中处理，避免畸形编码绕过请求体边界。
+            return false;
+        }
         return !HttpMethod.POST.matches(request.getMethod())
                 || requestUri == null
                 || !requestUri.startsWith("/api/v1/model-configs/")
@@ -68,28 +80,160 @@ public final class McpToolRequestSizeFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
         long contentLength = request.getContentLengthLong();
         if (contentLength > maxRequestBytes) {
-            response.sendError(
-                    HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE,
-                    "MCP tool request body is too large"
-            );
+            sendTooLarge(response);
             return;
         }
         try {
+            if (contentLength < 0) {
+                byte[] body = readUnknownLengthBody(request);
+                filterChain.doFilter(
+                        new BufferedRequest(request, body),
+                        response
+                );
+                return;
+            }
             filterChain.doFilter(
                     new BoundedRequest(request, maxRequestBytes),
                     response
             );
+        } catch (RequestTooLargeException exception) {
+            if (!response.isCommitted()) {
+                sendTooLarge(response);
+                return;
+            }
+            throw exception;
         } catch (IOException exception) {
             if (!response.isCommitted()
                     && exception.getMessage() != null
                     && exception.getMessage().contains("exceeds configured limit")) {
-                response.sendError(
-                        HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE,
-                        "MCP tool request body is too large"
-                );
+                sendTooLarge(response);
                 return;
             }
             throw exception;
+        }
+    }
+
+    private byte[] readUnknownLengthBody(HttpServletRequest request)
+            throws IOException {
+        try (ServletInputStream input = request.getInputStream()) {
+            ByteArrayOutputStream body = new ByteArrayOutputStream(
+                    (int) Math.min(maxRequestBytes, 8 * 1024)
+            );
+            byte[] buffer = new byte[8 * 1024];
+            int read;
+            while ((read = input.read(buffer)) >= 0) {
+                if (read == 0) {
+                    continue;
+                }
+                if ((long) body.size() + read > maxRequestBytes) {
+                    throw new RequestTooLargeException();
+                }
+                body.write(buffer, 0, read);
+            }
+            return body.toByteArray();
+        }
+    }
+
+    private void sendTooLarge(HttpServletResponse response) throws IOException {
+        response.sendError(
+                HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE,
+                "MCP tool request body is too large"
+        );
+    }
+
+    private static final class RequestTooLargeException extends IOException {
+
+        private RequestTooLargeException() {
+            super("MCP tool request body exceeds configured limit");
+        }
+    }
+
+    private static final class BufferedRequest
+            extends HttpServletRequestWrapper {
+
+        private final byte[] body;
+        private BufferedServletInputStream inputStream;
+
+        private BufferedRequest(HttpServletRequest request, byte[] body) {
+            super(request);
+            this.body = body;
+        }
+
+        @Override
+        public int getContentLength() {
+            return body.length;
+        }
+
+        @Override
+        public long getContentLengthLong() {
+            return body.length;
+        }
+
+        @Override
+        public ServletInputStream getInputStream() {
+            if (inputStream == null) {
+                inputStream = new BufferedServletInputStream(body);
+            }
+            return inputStream;
+        }
+
+        @Override
+        public BufferedReader getReader() {
+            Charset charset = getCharacterEncoding() == null
+                    ? StandardCharsets.UTF_8
+                    : Charset.forName(getCharacterEncoding());
+            return new BufferedReader(
+                    new InputStreamReader(getInputStream(), charset)
+            );
+        }
+    }
+
+    private static final class BufferedServletInputStream
+            extends ServletInputStream {
+
+        private final ByteArrayInputStream delegate;
+
+        private BufferedServletInputStream(byte[] body) {
+            this.delegate = new ByteArrayInputStream(body);
+        }
+
+        @Override
+        public int read() {
+            return delegate.read();
+        }
+
+        @Override
+        public int read(byte[] buffer, int offset, int length) {
+            return delegate.read(buffer, offset, length);
+        }
+
+        @Override
+        public long skip(long amount) {
+            return delegate.skip(amount);
+        }
+
+        @Override
+        public int available() {
+            return delegate.available();
+        }
+
+        @Override
+        public boolean isFinished() {
+            return delegate.available() == 0;
+        }
+
+        @Override
+        public boolean isReady() {
+            return true;
+        }
+
+        @Override
+        public void setReadListener(
+                jakarta.servlet.ReadListener readListener
+        ) {
+            throw new UnsupportedOperationException(
+                    "async read listener is not supported by the buffered request"
+            );
         }
     }
 

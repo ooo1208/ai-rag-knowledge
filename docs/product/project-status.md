@@ -88,7 +88,7 @@ mvn package -DskipTests
 mvn clean package -DskipTests
 ```
 
-2026-10-06 的 `compile` 已包含 MCP V2 迁移、工具目录、SSE 执行适配器、动态 Provider 出站策略和统一 URL 校验，7 个模块全部成功；最近的 application 18 个单元测试、infrastructure 18 个安全测试和 trigger 3 个请求体过滤器测试通过；随后仍需在真实 PostgreSQL/MCP Provider 上执行迁移和连接冒烟。
+2026-10-06 的 `compile` 已包含 MCP V2 迁移、工具目录、SSE 执行适配器、动态 Provider 出站策略和统一 URL 校验，7 个模块全部成功；最近的 application 18 个单元测试、infrastructure 21 个安全测试和 trigger 5 个请求体过滤器测试通过；随后仍需在真实 PostgreSQL/MCP Provider 上执行迁移和连接冒烟。
 
 构建产物：
 
