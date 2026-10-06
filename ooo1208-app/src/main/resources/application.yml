@@ -17,6 +17,19 @@ app:
     openai-compatible:
       model: gpt-4o-mini
 
+  # 数据库中的动态模型 Provider 地址必须命中对应的 host/端口白名单。
+  # Ollama 默认允许当前开发环境的内网地址；生产环境请按实际 egress 覆盖。
+  model-provider:
+    outbound:
+      ollama:
+        allowed-hosts: ${OLLAMA_ALLOWED_HOSTS:192.168.23.100}
+        allowed-ports: ${OLLAMA_ALLOWED_PORTS:11434}
+        allow-private: ${OLLAMA_ALLOW_PRIVATE:true}
+      openai-compatible:
+        allowed-hosts: ${OPENAI_COMPATIBLE_ALLOWED_HOSTS:api.openai.com}
+        allowed-ports: ${OPENAI_COMPATIBLE_ALLOWED_PORTS:443}
+        allow-private: ${OPENAI_COMPATIBLE_ALLOW_PRIVATE:false}
+
   # 受控联网搜索默认关闭。启用后只使用服务端登记的 Tavily-compatible provider，
   # 请求方不能传入 endpoint、API Key 或任意抓取 URL。
   network-search:

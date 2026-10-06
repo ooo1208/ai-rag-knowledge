@@ -44,6 +44,7 @@ Phase 0 和 Phase 1 的核心代码已经落地：聊天和 RAG 都有统一的 
 - boot 启动时只在记录不存在时写入 Ollama 和 OpenAI Compatible 两个系统预置配置。
 - `InMemoryModelConfigQueryAdapter` 保留为显式 `in-memory-model-config` profile 下的过渡实现。
 - `ChatModelFactory` 使用解析结果中的 `baseUrl` 和 `credentialRef` 创建每次调用所需的客户端；凭证只从外部配置解析，不从数据库读取明文。
+- 动态模型聊天和连接探针在创建客户端前通过 `ModelProviderEndpointValidator` 校验按 Provider 分组的 host、端口和私网策略；默认开发配置为 Ollama `192.168.23.100:11434`、OpenAI-compatible `api.openai.com:443`。
 - OpenAI Compatible 的 base URL 会统一兼容带或不带 `/v1` 的写法，避免与 Spring AI 默认路径重复拼接。
 - `POST /api/v1/model-connections/test` 只接受已登记且启用的 `modelConfigId`，Ollama 探测模型列表，OpenAI Compatible 探测 `/v1/models`，结果区分认证、网络、服务不可用和模型不存在。
 
@@ -55,8 +56,8 @@ Phase 0 和 Phase 1 的核心代码已经落地：聊天和 RAG 都有统一的 
 - `POST /api/v1/model-configs/{modelConfigId}/tools/{toolId}/execute` 已接入第一版执行入口；执行前再次校验模型预设白名单，只允许只读且无需确认的工具，参数最多 32 个并限制嵌套/字符串/总量；按绑定的 `maxCalls` 对每个模型工具做进程内每分钟限流；默认关闭时返回 `503`。
 - HTTP 入口在 JSON 反序列化前限制请求体（默认 128 KiB）；这只保护 MCP 执行入口，其他管理/认证边界仍待补齐。
 - application 层新增 `McpToolCatalogQueryPort` 和只读目录用例；MCP SDK 和传输细节仍留在 infrastructure 边界之外。
-- `OutboundUrlValidator` 统一限制后续 HTTP 出站访问：公网默认只允许 HTTP/HTTPS 的 80/443，并拒绝 userinfo、查询串、回环、私网、链路本地、CGNAT、元数据和组播地址。
-- `spring-ai-mcp` 只放在 infrastructure；第一版适配器使用 MCP Java SDK 的 SSE transport，每次调用创建并关闭短生命周期 client，限制配置的 host allowlist、超时、无重定向、JSON 解析深度/单事件大小和逻辑输出长度；Streamable HTTP、STDIO、工具同步、审批、鉴权和持久化审计仍未完成。
+- `OutboundUrlValidator` 统一限制后续 HTTP 出站访问：公网默认只允许 HTTP/HTTPS 的 80/443，并拒绝 userinfo、查询串、回环、私网、链路本地、CGNAT、元数据和组播地址；动态模型 Provider 另按 Provider 使用显式 managed host/port allowlist。
+- `spring-ai-mcp` 只放在 infrastructure；第一版适配器使用 MCP Java SDK 的 SSE transport，每次调用创建并关闭短生命周期 client，限制配置的 host allowlist、超时、无重定向、解析后 JSON 深度/文档大小和逻辑输出长度；Streamable HTTP、STDIO、工具同步、审批、鉴权和持久化审计仍未完成。
 
 ### 固定联网搜索第一版
 
@@ -87,7 +88,7 @@ mvn package -DskipTests
 mvn clean package -DskipTests
 ```
 
-2026-10-06 的 `compile` 已包含 MCP V2 迁移、工具目录、SSE 执行适配器和出站 URL 校验，7 个模块全部成功；最近的 application 18 个单元测试、infrastructure 12 个安全测试和 trigger 3 个请求体过滤器测试通过；随后仍需在真实 PostgreSQL/MCP Provider 上执行迁移和连接冒烟。
+2026-10-06 的 `compile` 已包含 MCP V2 迁移、工具目录、SSE 执行适配器、动态 Provider 出站策略和统一 URL 校验，7 个模块全部成功；最近的 application 18 个单元测试、infrastructure 18 个安全测试和 trigger 3 个请求体过滤器测试通过；随后仍需在真实 PostgreSQL/MCP Provider 上执行迁移和连接冒烟。
 
 构建产物：
 
@@ -156,7 +157,7 @@ ooo1208-app/target/ai-rag-knowledge.jar
 - 已引入与当前 Spring Boot 版本兼容的 `spring-ai-mcp` 底层依赖；第一版只支持 SSE，不引入会直接升级 Boot 的 starter。
 - 只允许数据库中的稳定 `serverId`、`toolId`，禁止用户传 endpoint、命令或凭证。
 - 已增加执行用例和 `POST /api/v1/model-configs/{modelConfigId}/tools/{toolId}/execute`；默认只读且无需确认的工具，工具输出标记为不可信内容。
-- 仍需补齐 Streamable HTTP、STDIO 命令白名单、写操作显式确认、调用审计/限流、工具同步和权限控制。
+- 仍需补齐 Streamable HTTP、STDIO 命令白名单、写操作显式确认、持久化调用审计、跨实例配额、工具同步和权限控制；当前限流只提供单进程每分钟保护。
 
 ### Step 6：最后做 BYOK 和运营能力
 

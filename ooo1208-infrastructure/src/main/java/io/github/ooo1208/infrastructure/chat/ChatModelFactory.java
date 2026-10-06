@@ -4,9 +4,11 @@ import io.github.ooo1208.application.chat.model.ResolvedModelConfig;
 import io.github.ooo1208.domain.modelcatalog.ProviderType;
 import io.github.ooo1208.infrastructure.config.CredentialResolver;
 import io.github.ooo1208.infrastructure.config.OpenAiApiSupport;
+import io.github.ooo1208.infrastructure.network.ModelProviderEndpointValidator;
 import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.ai.ollama.api.OllamaApi;
 import org.springframework.ai.openai.OpenAiChatModel;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.Objects;
@@ -21,9 +23,26 @@ import java.util.Objects;
 public final class ChatModelFactory {
 
     private final CredentialResolver credentialResolver;
+    private final ModelProviderEndpointValidator endpointValidator;
 
+    /**
+     * Spring 装配入口。数据库中的模型 Provider 地址必须同时命中显式 host
+     * 和端口白名单；私网地址只有在管理员配置白名单后才允许使用。
+     */
     public ChatModelFactory(CredentialResolver credentialResolver) {
+        this(
+                credentialResolver,
+                ModelProviderEndpointValidator.defaults()
+        );
+    }
+
+    @Autowired
+    public ChatModelFactory(
+            CredentialResolver credentialResolver,
+            ModelProviderEndpointValidator endpointValidator
+    ) {
         this.credentialResolver = Objects.requireNonNull(credentialResolver);
+        this.endpointValidator = Objects.requireNonNull(endpointValidator);
     }
 
     public OllamaChatModel createOllama(ResolvedModelConfig modelConfig) {
@@ -32,7 +51,7 @@ public final class ChatModelFactory {
         return OllamaChatModel.builder()
                 .ollamaApi(
                         OllamaApi.builder()
-                                .baseUrl(modelConfig.baseUrl())
+                                .baseUrl(validateBaseUrl(modelConfig))
                                 .build()
                 )
                 .build();
@@ -43,10 +62,21 @@ public final class ChatModelFactory {
     ) {
         requireProvider(modelConfig, ProviderType.OPENAI_COMPATIBLE);
 
+        String baseUrl = validateBaseUrl(modelConfig);
         String apiKey = credentialResolver.resolve(modelConfig.credentialRef());
         return OpenAiChatModel.builder()
-                .openAiApi(OpenAiApiSupport.create(modelConfig.baseUrl(), apiKey))
+                .openAiApi(OpenAiApiSupport.create(
+                        baseUrl,
+                        apiKey
+                ))
                 .build();
+    }
+
+    private String validateBaseUrl(ResolvedModelConfig modelConfig) {
+        return endpointValidator.validate(
+                modelConfig.providerType(),
+                modelConfig.baseUrl()
+        ).value();
     }
 
     private void requireProvider(

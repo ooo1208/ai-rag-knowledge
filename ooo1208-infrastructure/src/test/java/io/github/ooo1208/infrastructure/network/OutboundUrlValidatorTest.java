@@ -90,4 +90,65 @@ class OutboundUrlValidatorTest {
 
         assertEquals("http://127.0.0.1:11434", validated.value());
     }
+
+    @Test
+    void managedProviderRequiresConfiguredHostAllowlist() {
+        OutboundHostAllowlist allowedHosts = OutboundHostAllowlist.of(
+                "127.0.0.1"
+        );
+
+        OutboundUrlValidator.ValidatedUrl validated =
+                OutboundUrlValidator.validateManagedProvider(
+                        "http://127.0.0.1:11434",
+                        allowedHosts,
+                        Set.of(11_434)
+                );
+
+        assertEquals("http://127.0.0.1:11434", validated.value());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> OutboundUrlValidator.validateManagedProvider(
+                        "http://127.0.0.2:11434",
+                        allowedHosts,
+                        Set.of(11_434)
+                )
+        );
+    }
+
+    @Test
+    void wildcardHostMatchesSubdomainButNotRootDomain() {
+        OutboundHostAllowlist allowedHosts = OutboundHostAllowlist.of(
+                "*.example.com"
+        );
+
+        assertEquals(true, allowedHosts.matches("mcp.example.com"));
+        assertEquals(false, allowedHosts.matches("example.com"));
+        assertEquals(false, allowedHosts.matches("example.net"));
+    }
+
+    @Test
+    void managedProviderCanUsePublicPolicyWithoutPrivateAddresses() {
+        OutboundHostAllowlist allowedHosts = OutboundHostAllowlist.of(
+                "1.1.1.1"
+        );
+
+        OutboundUrlValidator.ValidatedUrl validated =
+                OutboundUrlValidator.validateManagedProvider(
+                        "https://1.1.1.1/v1",
+                        allowedHosts,
+                        Set.of(443),
+                        false
+                );
+
+        assertEquals("https://1.1.1.1/v1", validated.value());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> OutboundUrlValidator.validateManagedProvider(
+                        "https://127.0.0.1:443",
+                        OutboundHostAllowlist.of("127.0.0.1"),
+                        Set.of(443),
+                        false
+                )
+        );
+    }
 }

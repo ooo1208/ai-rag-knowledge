@@ -52,6 +52,55 @@ public final class OutboundUrlValidator {
     }
 
     /**
+     * 校验管理员登记的模型 Provider 地址。
+     *
+     * <p>与公网搜索/MCP 不同，模型 Provider 可以是内网或本机服务，但仍
+     * 必须同时满足显式 host 白名单、端口白名单和 DNS 地址策略。</p>
+     */
+    public static ValidatedUrl validateManagedProvider(
+            String rawUrl,
+            OutboundHostAllowlist allowedHosts,
+            Set<Integer> allowedPorts
+    ) {
+        return validateManagedProvider(
+                rawUrl,
+                allowedHosts,
+                allowedPorts,
+                true
+        );
+    }
+
+    /**
+     * 按管理员登记的 host、端口和私网开关校验模型 Provider 地址。
+     */
+    public static ValidatedUrl validateManagedProvider(
+            String rawUrl,
+            OutboundHostAllowlist allowedHosts,
+            Set<Integer> allowedPorts,
+            boolean allowPrivateAddresses
+    ) {
+        Objects.requireNonNull(allowedHosts, "allowedHosts");
+        if (allowedHosts.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "managed provider requires at least one allowed host"
+            );
+        }
+        ValidatedUrl validated = validate(
+                rawUrl,
+                new OutboundUrlPolicy(
+                        allowPrivateAddresses,
+                        allowedPorts
+                )
+        );
+        if (!allowedHosts.matches(validated.uri().getHost())) {
+            throw new IllegalArgumentException(
+                    "managed provider host is not in the configured allowlist"
+            );
+        }
+        return validated;
+    }
+
+    /**
      * 按调用方显式指定的策略校验地址。
      *
      * <p>允许私网地址的策略只能用于已经由管理员登记、且不接受用户输入的

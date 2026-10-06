@@ -8,6 +8,7 @@ import io.github.ooo1208.application.mcp.model.McpToolExecutionResult;
 import io.github.ooo1208.application.mcp.port.out.McpToolExecutionPort;
 import io.github.ooo1208.domain.mcp.McpTransportType;
 import io.github.ooo1208.infrastructure.config.CredentialResolver;
+import io.github.ooo1208.infrastructure.network.OutboundHostAllowlist;
 import io.github.ooo1208.infrastructure.network.OutboundUrlValidator;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
@@ -20,11 +21,8 @@ import java.net.http.HttpClient;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
-import java.util.Arrays;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -44,7 +42,7 @@ public final class SpringAiMcpToolExecutionAdapter
     private final int timeoutMillis;
     private final CredentialResolver credentialResolver;
     private final ObjectMapper objectMapper;
-    private final Set<String> allowedHosts;
+    private final OutboundHostAllowlist allowedHosts;
 
     public SpringAiMcpToolExecutionAdapter(
             @Value("${app.mcp.execution.enabled:false}") boolean enabled,
@@ -62,7 +60,7 @@ public final class SpringAiMcpToolExecutionAdapter
         this.timeoutMillis = timeoutMillis;
         this.credentialResolver = Objects.requireNonNull(credentialResolver);
         this.objectMapper = constrainedObjectMapper(objectMapper);
-        this.allowedHosts = parseAllowedHosts(allowedHosts);
+        this.allowedHosts = OutboundHostAllowlist.fromCsv(allowedHosts);
         if (enabled && this.allowedHosts.isEmpty()) {
             throw new IllegalArgumentException(
                     "MCP execution requires at least one allowed host"
@@ -108,7 +106,7 @@ public final class SpringAiMcpToolExecutionAdapter
                     McpToolExecutionException.Kind.POLICY
             );
         }
-        if (!isAllowedHost(endpoint.uri().getHost())) {
+        if (!allowedHosts.matches(endpoint.uri().getHost())) {
             throw new McpToolExecutionException(
                     "MCP endpoint host is not in the configured allowlist",
                     McpToolExecutionException.Kind.POLICY
@@ -186,46 +184,6 @@ public final class SpringAiMcpToolExecutionAdapter
                         .build()
         );
         return copy;
-    }
-
-    private Set<String> parseAllowedHosts(String rawAllowedHosts) {
-        if (rawAllowedHosts == null || rawAllowedHosts.isBlank()) {
-            return Set.of();
-        }
-        Set<String> hosts = Arrays.stream(rawAllowedHosts.split(","))
-                .map(String::trim)
-                .filter(host -> !host.isBlank())
-                .map(host -> host.toLowerCase(Locale.ROOT))
-                .collect(Collectors.toUnmodifiableSet());
-        if (hosts.stream().anyMatch(host ->
-                host.length() > 253
-                        || host.length() < 2
-                        || host.indexOf('/') >= 0
-                        || host.indexOf(':') >= 0
-                        || host.indexOf('*') >= 0 && !host.startsWith("*.")
-                        || host.equals("*.")
-                        || host.indexOf('*', 1) >= 0
-                        || host.chars().anyMatch(Character::isISOControl))) {
-            throw new IllegalArgumentException(
-                    "MCP execution allowed-hosts contains an invalid host"
-            );
-        }
-        return hosts;
-    }
-
-    private boolean isAllowedHost(String rawHost) {
-        if (rawHost == null || rawHost.isBlank()) {
-            return false;
-        }
-        String host = rawHost.toLowerCase(Locale.ROOT);
-        return allowedHosts.stream().anyMatch(pattern -> {
-            if (pattern.startsWith("*.")) {
-                String suffix = pattern.substring(1);
-                return host.endsWith(suffix)
-                        && !host.equals(suffix.substring(1));
-            }
-            return host.equals(pattern);
-        });
     }
 
     private HttpClientSseClientTransport.Builder buildSseTransport(

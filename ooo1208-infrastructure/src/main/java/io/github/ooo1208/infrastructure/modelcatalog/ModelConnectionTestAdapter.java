@@ -6,7 +6,9 @@ import io.github.ooo1208.application.chat.model.ResolvedModelConfig;
 import io.github.ooo1208.application.chat.port.out.ModelConnectionTestPort;
 import io.github.ooo1208.infrastructure.config.CredentialResolver;
 import io.github.ooo1208.infrastructure.config.OpenAiApiSupport;
+import io.github.ooo1208.infrastructure.network.ModelProviderEndpointValidator;
 import org.springframework.ai.ollama.api.OllamaApi;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
@@ -27,9 +29,22 @@ public final class ModelConnectionTestAdapter
         implements ModelConnectionTestPort {
 
     private final CredentialResolver credentialResolver;
+    private final ModelProviderEndpointValidator endpointValidator;
 
     public ModelConnectionTestAdapter(CredentialResolver credentialResolver) {
+        this(
+                credentialResolver,
+                ModelProviderEndpointValidator.defaults()
+        );
+    }
+
+    @Autowired
+    public ModelConnectionTestAdapter(
+            CredentialResolver credentialResolver,
+            ModelProviderEndpointValidator endpointValidator
+    ) {
         this.credentialResolver = Objects.requireNonNull(credentialResolver);
+        this.endpointValidator = Objects.requireNonNull(endpointValidator);
     }
 
     @Override
@@ -46,8 +61,12 @@ public final class ModelConnectionTestAdapter
             ResolvedModelConfig modelConfig
     ) {
         try {
+            String baseUrl = endpointValidator.validate(
+                    modelConfig.providerType(),
+                    modelConfig.baseUrl()
+            ).value();
             OllamaApi.ListModelResponse response = OllamaApi.builder()
-                    .baseUrl(modelConfig.baseUrl())
+                    .baseUrl(baseUrl)
                     .build()
                     .listModels();
 
@@ -100,6 +119,20 @@ public final class ModelConnectionTestAdapter
     private ModelConnectionTestResult testOpenAiCompatible(
             ResolvedModelConfig modelConfig
     ) {
+        String baseUrl;
+        try {
+            baseUrl = endpointValidator.validate(
+                    modelConfig.providerType(),
+                    modelConfig.baseUrl()
+            ).value();
+        } catch (IllegalArgumentException exception) {
+            return failure(
+                    modelConfig,
+                    ConnectionTestStatus.UNSUPPORTED,
+                    "OpenAI-compatible connection configuration is invalid."
+            );
+        }
+
         String apiKey;
         try {
             apiKey = credentialResolver.resolve(modelConfig.credentialRef());
@@ -115,7 +148,7 @@ public final class ModelConnectionTestAdapter
             RestClient restClient = RestClient.builder()
                     .baseUrl(
                             OpenAiApiSupport.normalizeBaseUrl(
-                                    modelConfig.baseUrl()
+                                    baseUrl
                             )
                     )
                     .defaultHeaders(headers -> headers.setBearerAuth(apiKey))

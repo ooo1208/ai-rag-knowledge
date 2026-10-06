@@ -125,16 +125,30 @@
 ### 结果
 
 - 默认 `MCP_EXECUTION_ENABLED=false`，未显式开启时返回 `503`；策略拒绝返回 `400`，Provider 错误返回 `502`。
-- application 新增执行策略、限流和参数边界单元测试，infrastructure 新增适配器安全测试，trigger 新增请求体过滤器测试；`mvn -pl ooo1208-application,ooo1208-infrastructure,ooo1208-trigger -am test -DskipTests=false` 通过（application 18 个、infrastructure 12 个、trigger 3 个）。
+- application 新增执行策略、限流和参数边界单元测试，infrastructure 新增适配器安全测试，trigger 新增请求体过滤器测试；当前全套相关测试为 application 18 个、infrastructure 21 个、trigger 3 个。
 - Streamable HTTP、STDIO、工具同步、写操作审批、权限和调用审计仍未开放；真实 MCP 服务连接尚未在当前环境验证。
 
 ### 安全加固
 
 - 按工具绑定的 `maxCalls` 增加单进程每分钟调用预算，超过后返回 `429`；该限制不是跨实例持久化审计，后续需要 Redis/数据库配额替换。
 - 工具参数增加深度、节点数、字符串长度和约 64 KiB 总字符预算，并做递归不可变复制，避免调用方在出站期间修改嵌套对象。
-- SSE client 使用受限 Jackson `StreamReadConstraints`（20 层嵌套、512 KiB 单 JSON 文档、20,000 字符字符串）并使用立即关闭，避免 SDK 固定 10 秒优雅关闭阻塞。
+- SSE client 使用受限 Jackson `StreamReadConstraints`（20 层嵌套、512 KiB 单 JSON 文档、20,000 字符字符串）并使用立即关闭，避免 SDK 固定 10 秒优雅关闭阻塞；这些限制作用于解析后的 JSON，不等同于原始 SSE event 的字节级上限。
 - 开启 `MCP_EXECUTION_ENABLED` 时强制要求 `MCP_EXECUTION_ALLOWED_HOSTS`，支持精确域名和 `*.example.com` 子域模式；没有 host allowlist 不启动执行适配器。
 - trigger 层新增请求体过滤器，在 MVC 反序列化前对 MCP 执行请求限制默认 128 KiB，覆盖已知 Content-Length 和 chunked 读取。
+
+## 2026-10-06：动态模型 Provider 出站策略
+
+### 行动
+
+- 新增 `OutboundHostAllowlist` 和 `ModelProviderEndpointValidator`，把数据库中的动态模型地址按 Ollama、OpenAI-compatible 分组校验 host、端口和是否允许私网。
+- `ChatModelFactory` 和 `ModelConnectionTestAdapter` 共用同一套已校验 URL；连接测试不再绕过聊天客户端的出站边界，OpenAI 凭证解析也在 URL 通过策略后才执行。
+- `application.yml` 增加 `OLLAMA_ALLOWED_HOSTS/PORTS/ALLOW_PRIVATE` 和 `OPENAI_COMPATIBLE_ALLOWED_HOSTS/PORTS/ALLOW_PRIVATE` 配置，默认覆盖当前开发环境的 Ollama 与 OpenAI 地址。
+
+### 结果
+
+- 动态 Provider 不再把数据库 `baseUrl` 原样交给 Spring AI 或 `RestClient`；不命中白名单、端口或私网策略时直接归类为不支持，不发起出站请求。
+- 新增 host 精确/子域匹配、Provider 分组策略和客户端工厂测试；相关测试累计为 application 18 个、infrastructure 21 个、trigger 3 个。
+- 仍需在真实 PostgreSQL、Ollama、OpenAI-compatible Provider 上执行迁移和连接冒烟；管理员 CRUD、每连接数据库级 allowlist 与权限审计仍未完成。
 
 ## 2026-10-06：联网搜索受限缓存
 
