@@ -114,12 +114,27 @@ class SpringAiMcpToolExecutionAdapterTest {
         );
     }
 
+    @Test
+    void enabledAdapterRequiresHostAllowlistAtConstruction() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new SpringAiMcpToolExecutionAdapter(
+                        true,
+                        1_000,
+                        new CredentialResolver(new MockEnvironment()),
+                        new ObjectMapper(),
+                        ""
+                )
+        );
+    }
+
     private SpringAiMcpToolExecutionAdapter newAdapter(boolean enabled) {
         return new SpringAiMcpToolExecutionAdapter(
                 enabled,
                 1_000,
                 new CredentialResolver(new MockEnvironment()),
-                new ObjectMapper()
+                new ObjectMapper(),
+                "example.com"
         );
     }
 }

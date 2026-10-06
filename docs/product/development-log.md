@@ -125,8 +125,16 @@
 ### 结果
 
 - 默认 `MCP_EXECUTION_ENABLED=false`，未显式开启时返回 `503`；策略拒绝返回 `400`，Provider 错误返回 `502`。
-- application 新增 5 个执行策略单元测试，infrastructure 新增 4 个适配器安全测试；`mvn -pl ooo1208-application,ooo1208-infrastructure -am test -DskipTests=false` 通过（application 13 个、infrastructure 11 个）。
+- application 新增执行策略、限流和参数边界单元测试，infrastructure 新增适配器安全测试，trigger 新增请求体过滤器测试；`mvn -pl ooo1208-application,ooo1208-infrastructure,ooo1208-trigger -am test -DskipTests=false` 通过（application 18 个、infrastructure 12 个、trigger 3 个）。
 - Streamable HTTP、STDIO、工具同步、写操作审批、权限和调用审计仍未开放；真实 MCP 服务连接尚未在当前环境验证。
+
+### 安全加固
+
+- 按工具绑定的 `maxCalls` 增加单进程每分钟调用预算，超过后返回 `429`；该限制不是跨实例持久化审计，后续需要 Redis/数据库配额替换。
+- 工具参数增加深度、节点数、字符串长度和约 64 KiB 总字符预算，并做递归不可变复制，避免调用方在出站期间修改嵌套对象。
+- SSE client 使用受限 Jackson `StreamReadConstraints`（20 层嵌套、512 KiB 单 JSON 文档、20,000 字符字符串）并使用立即关闭，避免 SDK 固定 10 秒优雅关闭阻塞。
+- 开启 `MCP_EXECUTION_ENABLED` 时强制要求 `MCP_EXECUTION_ALLOWED_HOSTS`，支持精确域名和 `*.example.com` 子域模式；没有 host allowlist 不启动执行适配器。
+- trigger 层新增请求体过滤器，在 MVC 反序列化前对 MCP 执行请求限制默认 128 KiB，覆盖已知 Content-Length 和 chunked 读取。
 
 ## 2026-10-06：联网搜索受限缓存
 

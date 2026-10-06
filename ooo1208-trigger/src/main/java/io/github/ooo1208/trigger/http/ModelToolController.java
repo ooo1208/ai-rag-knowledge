@@ -116,6 +116,7 @@ public final class ModelToolController {
             case POLICY -> HttpStatus.BAD_REQUEST;
             case UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
             case PROVIDER -> HttpStatus.BAD_GATEWAY;
+            case RATE_LIMITED -> HttpStatus.TOO_MANY_REQUESTS;
         };
     }
 

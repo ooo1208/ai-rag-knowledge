@@ -10,7 +10,8 @@ public final class McpToolExecutionException extends RuntimeException {
     public enum Kind {
         POLICY,
         UNAVAILABLE,
-        PROVIDER
+        PROVIDER,
+        RATE_LIMITED
     }
 
     private final Kind kind;

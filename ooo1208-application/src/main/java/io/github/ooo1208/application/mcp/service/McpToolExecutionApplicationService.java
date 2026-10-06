@@ -9,11 +9,19 @@ import io.github.ooo1208.application.mcp.port.out.McpServerConnectionQueryPort;
 import io.github.ooo1208.application.mcp.port.out.McpToolExecutionPort;
 import io.github.ooo1208.domain.modelcatalog.ModelConfigId;
 
+import java.lang.reflect.Array;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * MCP 工具执行策略编排器。
@@ -27,19 +35,42 @@ public final class McpToolExecutionApplicationService
 
     private static final int MAX_ARGUMENTS = 32;
     private static final int MAX_ARGUMENT_KEY_LENGTH = 100;
+    private static final int MAX_ARGUMENT_DEPTH = 6;
+    private static final int MAX_ARGUMENT_NODES = 256;
+    private static final int MAX_ARGUMENT_STRING_LENGTH = 8_192;
+    private static final int MAX_ARGUMENT_CHARS = 64 * 1024;
+    private static final Duration CALL_WINDOW = Duration.ofMinutes(1);
 
     private final McpToolCatalogApplicationService catalogService;
     private final McpServerConnectionQueryPort serverQueryPort;
     private final McpToolExecutionPort executionPort;
+    private final Clock clock;
+    private final ConcurrentMap<ExecutionKey, CallWindow> callWindows =
+            new ConcurrentHashMap<>();
 
     public McpToolExecutionApplicationService(
             McpToolCatalogApplicationService catalogService,
             McpServerConnectionQueryPort serverQueryPort,
             McpToolExecutionPort executionPort
     ) {
+        this(
+                catalogService,
+                serverQueryPort,
+                executionPort,
+                Clock.systemUTC()
+        );
+    }
+
+    public McpToolExecutionApplicationService(
+            McpToolCatalogApplicationService catalogService,
+            McpServerConnectionQueryPort serverQueryPort,
+            McpToolExecutionPort executionPort,
+            Clock clock
+    ) {
         this.catalogService = Objects.requireNonNull(catalogService);
         this.serverQueryPort = Objects.requireNonNull(serverQueryPort);
         this.executionPort = Objects.requireNonNull(executionPort);
+        this.clock = Objects.requireNonNull(clock);
     }
 
     @Override
@@ -66,15 +97,66 @@ public final class McpToolExecutionApplicationService
         }
 
         Map<String, Object> safeArguments = validateArguments(arguments);
-        McpServerConnectionDescriptor server =
-                serverQueryPort.queryEnabledServer(tool.serverId());
+        McpServerConnectionDescriptor server;
+        try {
+            server = serverQueryPort.queryEnabledServer(tool.serverId());
+        } catch (McpToolExecutionException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            throw new McpToolExecutionException(
+                    "MCP server connection is unavailable",
+                    exception,
+                    McpToolExecutionException.Kind.UNAVAILABLE
+            );
+        }
         if (server == null) {
             throw new McpToolExecutionException(
-                    "MCP server connection is not enabled"
+                    "MCP server connection is not enabled",
+                    McpToolExecutionException.Kind.UNAVAILABLE
             );
         }
 
-        return executionPort.execute(server, tool.name(), safeArguments);
+        // 只对已经通过参数校验且解析到启用服务器的实际调用计预算。
+        acquireCallBudget(modelConfigId, tool);
+        try {
+            return Objects.requireNonNull(
+                    executionPort.execute(server, tool.name(), safeArguments),
+                    "MCP execution result must not be null"
+            );
+        } catch (McpToolExecutionException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            throw new McpToolExecutionException(
+                    "MCP provider tool execution failed",
+                    exception,
+                    McpToolExecutionException.Kind.PROVIDER
+            );
+        }
+    }
+
+    private void acquireCallBudget(
+            ModelConfigId modelConfigId,
+            McpToolDescriptor tool
+    ) {
+        ExecutionKey key = new ExecutionKey(modelConfigId.value(), tool.toolId());
+        Instant now = clock.instant();
+        try {
+            callWindows.compute(key, (ignored, previous) -> {
+                if (previous == null
+                        || !now.isBefore(previous.startedAt().plus(CALL_WINDOW))) {
+                    return new CallWindow(now, 1);
+                }
+                if (previous.count() >= tool.maxCalls()) {
+                    throw new CallBudgetExceeded();
+                }
+                return new CallWindow(previous.startedAt(), previous.count() + 1);
+            });
+        } catch (CallBudgetExceeded exception) {
+            throw new McpToolExecutionException(
+                    "MCP tool call limit reached for the current minute",
+                    McpToolExecutionException.Kind.RATE_LIMITED
+            );
+        }
     }
 
     private McpToolDescriptor resolveTool(
@@ -116,16 +198,130 @@ public final class McpToolExecutionApplicationService
                     "too many MCP tool arguments"
             );
         }
-        for (String key : arguments.keySet()) {
-            if (key == null || key.isBlank()
-                    || key.length() > MAX_ARGUMENT_KEY_LENGTH
-                    || key.chars().anyMatch(Character::isISOControl)) {
+        ArgumentBudget budget = new ArgumentBudget();
+        return copyMap(arguments, 0, budget);
+    }
+
+    private Map<String, Object> copyMap(
+            Map<?, ?> source,
+            int depth,
+            ArgumentBudget budget
+    ) {
+        if (depth > MAX_ARGUMENT_DEPTH || source.size() > MAX_ARGUMENTS) {
+            throw new McpToolExecutionException(
+                    "MCP tool arguments are too deeply nested or too large"
+            );
+        }
+        LinkedHashMap<String, Object> copy = new LinkedHashMap<>();
+        for (Map.Entry<?, ?> entry : source.entrySet()) {
+            String key = validateKey(entry.getKey(), budget);
+            copy.put(key, copyValue(entry.getValue(), depth + 1, budget));
+        }
+        return Collections.unmodifiableMap(copy);
+    }
+
+    private String validateKey(Object rawKey, ArgumentBudget budget) {
+        if (!(rawKey instanceof String key)
+                || key.isBlank()
+                || key.length() > MAX_ARGUMENT_KEY_LENGTH
+                || key.chars().anyMatch(Character::isISOControl)) {
+            throw new McpToolExecutionException(
+                    "MCP tool argument name is invalid"
+            );
+        }
+        budget.addCharacters(key.length());
+        return key;
+    }
+
+    private Object copyValue(
+            Object value,
+            int depth,
+            ArgumentBudget budget
+    ) {
+        if (value == null) {
+            return null;
+        }
+        if (depth > MAX_ARGUMENT_DEPTH) {
+            throw new McpToolExecutionException(
+                    "MCP tool arguments are too deeply nested"
+            );
+        }
+        budget.addNode();
+        if (value instanceof String string) {
+            if (string.length() > MAX_ARGUMENT_STRING_LENGTH) {
                 throw new McpToolExecutionException(
-                        "MCP tool argument name is invalid"
+                        "MCP tool argument value is too long"
+                );
+            }
+            budget.addCharacters(string.length());
+            return string;
+        }
+        if (value instanceof Number || value instanceof Boolean) {
+            budget.addCharacters(value.toString().length());
+            return value;
+        }
+        if (value instanceof Map<?, ?> map) {
+            return copyMap(map, depth, budget);
+        }
+        if (value instanceof Collection<?> collection) {
+            if (collection.size() > MAX_ARGUMENTS) {
+                throw new McpToolExecutionException(
+                        "MCP tool argument collection is too large"
+                );
+            }
+            List<Object> copy = new ArrayList<>(collection.size());
+            for (Object item : collection) {
+                copy.add(copyValue(item, depth + 1, budget));
+            }
+            return Collections.unmodifiableList(copy);
+        }
+        if (value.getClass().isArray()) {
+            int length = Array.getLength(value);
+            if (length > MAX_ARGUMENTS) {
+                throw new McpToolExecutionException(
+                        "MCP tool argument array is too large"
+                );
+            }
+            List<Object> copy = new ArrayList<>(length);
+            for (int index = 0; index < length; index++) {
+                copy.add(copyValue(Array.get(value, index), depth + 1, budget));
+            }
+            return Collections.unmodifiableList(copy);
+        }
+        throw new McpToolExecutionException(
+                "MCP tool argument value type is not supported"
+        );
+    }
+
+    private record ExecutionKey(String modelConfigId, String toolId) {
+    }
+
+    private record CallWindow(Instant startedAt, int count) {
+    }
+
+    private static final class CallBudgetExceeded extends RuntimeException {
+    }
+
+    private static final class ArgumentBudget {
+
+        private int nodes;
+        private int characters;
+
+        private void addNode() {
+            if (++nodes > MAX_ARGUMENT_NODES) {
+                throw new McpToolExecutionException(
+                        "MCP tool arguments contain too many values"
                 );
             }
         }
-        // 保留 JSON null 参数，同时切断调用方对出站请求参数的后续修改。
-        return Collections.unmodifiableMap(new LinkedHashMap<>(arguments));
+
+        private void addCharacters(int amount) {
+            if (amount > MAX_ARGUMENT_CHARS - characters) {
+                throw new McpToolExecutionException(
+                        "MCP tool arguments exceed the size limit"
+                );
+            }
+            characters += amount;
+        }
     }
 }

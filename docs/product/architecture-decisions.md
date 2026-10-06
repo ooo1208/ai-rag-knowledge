@@ -117,7 +117,7 @@ OpenAI Compatible 的 `baseUrl` 允许历史配置带 `/v1`，基础设施层在
 - 通过 `GET /api/v1/model-configs` 暴露模型选择器摘要，前端只消费稳定 `modelConfigId`，不直接消费 Provider 连接细节；
 - 基础设施层统一调用 `OutboundUrlValidator`，公网默认只允许 HTTP/HTTPS 的 80/443，并拒绝解析到回环、私网、链路本地、CGNAT、元数据、保留或组播地址；
 - 固定搜索和 MCP 执行通过基础设施适配器接入；MCP 第一版只使用 `spring-ai-mcp` 的 SSE transport，所有工具输出标记为不可信内容，所有出站连接仍需超时、无重定向和 URL 校验。
-- MCP 执行默认关闭，只允许只读且无需确认的工具；Streamable HTTP、STDIO、写操作审批、工具同步和审计后续单独设计。
+- MCP 执行默认关闭，只允许只读且无需确认的工具；第一版额外要求显式服务器 host allowlist、按绑定 `maxCalls` 做单进程每分钟限流，并限制参数/JSON 大小；Streamable HTTP、STDIO、写操作审批、工具同步、持久化审计和用户鉴权后续单独设计。
 
 这样可以先稳定前端选择契约和数据库白名单，再引入协议 SDK，不会把任意网络访问能力误认为已经安全可用。
 

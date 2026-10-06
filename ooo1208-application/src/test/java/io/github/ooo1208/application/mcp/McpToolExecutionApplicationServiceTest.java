@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -145,6 +146,70 @@ class McpToolExecutionApplicationServiceTest {
                         MODEL_CONFIG_ID,
                         READ_TOOL.toolId(),
                         arguments
+                )
+        );
+    }
+
+    @Test
+    void executeHonorsEffectivePerMinuteCallBudget() {
+        McpToolDescriptor oneCallTool = new McpToolDescriptor(
+                READ_TOOL.toolId(),
+                READ_TOOL.serverId(),
+                READ_TOOL.name(),
+                READ_TOOL.displayName(),
+                READ_TOOL.description(),
+                true,
+                false,
+                1
+        );
+        AtomicInteger providerCalls = new AtomicInteger();
+        McpToolCatalogApplicationService catalog =
+                new McpToolCatalogApplicationService(ignored -> List.of(oneCallTool));
+        McpToolExecutionApplicationService service =
+                new McpToolExecutionApplicationService(
+                        catalog,
+                        ignored -> new McpServerConnectionDescriptor(
+                                "server-web",
+                                McpTransportType.SSE,
+                                "https://example.com/sse",
+                                null
+                        ),
+                        (server, toolName, arguments) -> {
+                            providerCalls.incrementAndGet();
+                            return new McpToolExecutionResult("ok", false, true);
+                        }
+                );
+
+        service.execute(MODEL_CONFIG_ID, oneCallTool.toolId(), Map.of());
+        McpToolExecutionException exception = assertThrows(
+                McpToolExecutionException.class,
+                () -> service.execute(
+                        MODEL_CONFIG_ID,
+                        oneCallTool.toolId(),
+                        Map.of()
+                )
+        );
+
+        assertEquals(
+                McpToolExecutionException.Kind.RATE_LIMITED,
+                exception.kind()
+        );
+        assertEquals(1, providerCalls.get());
+    }
+
+    @Test
+    void executeRejectsOversizedStringArgument() {
+        McpToolExecutionApplicationService service = newService(
+                List.of(READ_TOOL),
+                new AtomicReference<>()
+        );
+
+        assertThrows(
+                McpToolExecutionException.class,
+                () -> service.execute(
+                        MODEL_CONFIG_ID,
+                        READ_TOOL.toolId(),
+                        Map.of("query", "x".repeat(8_193))
                 )
         );
     }

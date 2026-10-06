@@ -6,7 +6,7 @@
 
 Phase 0 和 Phase 1 的核心代码已经落地：聊天和 RAG 都有统一的 application 用例，HTTP 层不再直接编排模型或向量库，Ollama 和 OpenAI Compatible 通过出站适配器接入。
 
-这一版已经完成模型目录数据库化、动态客户端、连接测试、MCP 工具选择目录、第一版 SSE MCP 只读执行和固定联网搜索：Flyway 创建模型目录与 MCP 白名单表，JDBC 适配器读取启用的模型预设、工具绑定和服务器连接，聊天适配器会按解析结果创建对应的 Ollama 或 OpenAI Compatible 客户端，并提供基于已登记 `modelConfigId` 的轻量连接探针。基础设施层还增加了统一的公网出站 URL 校验边界、默认关闭的 Tavily-compatible 搜索适配器和默认关闭的 MCP SSE 客户端。它仍不是最终的动态配置产品，管理员 API、权限控制、MCP 审批/审计、搜索缓存与审计还没有完成。
+这一版已经完成模型目录数据库化、动态客户端、连接测试、MCP 工具选择目录、第一版 SSE MCP 只读执行和固定联网搜索：Flyway 创建模型目录与 MCP 白名单表，JDBC 适配器读取启用的模型预设、工具绑定和服务器连接，聊天适配器会按解析结果创建对应的 Ollama 或 OpenAI Compatible 客户端，并提供基于已登记 `modelConfigId` 的轻量连接探针。基础设施层还增加了统一的公网出站 URL 校验边界、默认关闭的 Tavily-compatible 搜索适配器和默认关闭的 MCP SSE 客户端。它仍不是最终的动态配置产品，管理员 API、权限控制、MCP 审批/持久化审计和搜索权限审计还没有完成。
 
 ## 已完成
 
@@ -52,10 +52,11 @@ Phase 0 和 Phase 1 的核心代码已经落地：聊天和 RAG 都有统一的 
 - Flyway V2 创建 `mcp_server_connection`、`mcp_tool` 和 `model_preset_tool`，用模型预设绑定 MCP 工具白名单。
 - `GET /api/v1/model-configs/{modelConfigId}/tools` 只返回已启用工具的稳定 ID、展示信息、只读和确认策略，不返回 endpoint、STDIO 命令或凭证引用。
 - `POST /api/v1/model-configs/{modelConfigId}/tools/selection` 只接受稳定 `toolIds`，服务端按预设白名单校验、去除空白并保持选择顺序；未绑定或禁用工具直接返回 `400`。
-- `POST /api/v1/model-configs/{modelConfigId}/tools/{toolId}/execute` 已接入第一版执行入口；执行前再次校验模型预设白名单，只允许只读且无需确认的工具，参数最多 32 个；默认关闭时返回 `503`。
+- `POST /api/v1/model-configs/{modelConfigId}/tools/{toolId}/execute` 已接入第一版执行入口；执行前再次校验模型预设白名单，只允许只读且无需确认的工具，参数最多 32 个并限制嵌套/字符串/总量；按绑定的 `maxCalls` 对每个模型工具做进程内每分钟限流；默认关闭时返回 `503`。
+- HTTP 入口在 JSON 反序列化前限制请求体（默认 128 KiB）；这只保护 MCP 执行入口，其他管理/认证边界仍待补齐。
 - application 层新增 `McpToolCatalogQueryPort` 和只读目录用例；MCP SDK 和传输细节仍留在 infrastructure 边界之外。
 - `OutboundUrlValidator` 统一限制后续 HTTP 出站访问：公网默认只允许 HTTP/HTTPS 的 80/443，并拒绝 userinfo、查询串、回环、私网、链路本地、CGNAT、元数据和组播地址。
-- `spring-ai-mcp` 只放在 infrastructure；第一版适配器使用 MCP Java SDK 的 SSE transport，每次调用创建并关闭短生命周期 client，限制超时、无重定向和输出长度；Streamable HTTP、STDIO、工具同步、审批和审计仍未完成。
+- `spring-ai-mcp` 只放在 infrastructure；第一版适配器使用 MCP Java SDK 的 SSE transport，每次调用创建并关闭短生命周期 client，限制配置的 host allowlist、超时、无重定向、JSON 解析深度/单事件大小和逻辑输出长度；Streamable HTTP、STDIO、工具同步、审批、鉴权和持久化审计仍未完成。
 
 ### 固定联网搜索第一版
 
@@ -86,7 +87,7 @@ mvn package -DskipTests
 mvn clean package -DskipTests
 ```
 
-2026-10-06 的 `compile` 已包含 MCP V2 迁移、工具目录、SSE 执行适配器和出站 URL 校验，7 个模块全部成功；application 13 个单元测试、infrastructure 11 个安全测试通过；随后仍需在真实 PostgreSQL/MCP Provider 上执行迁移和连接冒烟。
+2026-10-06 的 `compile` 已包含 MCP V2 迁移、工具目录、SSE 执行适配器和出站 URL 校验，7 个模块全部成功；最近的 application 18 个单元测试、infrastructure 12 个安全测试和 trigger 3 个请求体过滤器测试通过；随后仍需在真实 PostgreSQL/MCP Provider 上执行迁移和连接冒烟。
 
 构建产物：
 
@@ -115,7 +116,7 @@ ooo1208-app/target/ai-rag-knowledge.jar
 7. 统一错误码、超时、重试、fallback、限流、用量和成本统计。
 8. EmbeddingProfile 和知识库级向量模型版本管理。
 9. 固定 provider 联网搜索的健康检查、权限审计和更细结果清洗（基础搜索、不可信上下文和受限缓存第一版已完成）。
-10. MCP Streamable HTTP/STDIO 的受控连接、工具同步、执行审批和审计；SSE 只读执行已有默认关闭的第一版适配器。
+10. MCP Streamable HTTP/STDIO 的受控连接、工具同步、执行审批、鉴权、持久化审计和跨实例配额；SSE 只读执行已有默认关闭的第一版适配器，当前仅在显式配置 host allowlist 后允许开启，限流仅为单进程保护。
 
 ## 下一步执行顺序
 
@@ -146,7 +147,7 @@ ooo1208-app/target/ai-rag-knowledge.jar
 
 - 先固定一个服务端配置的 `SEARCH_ONLY` provider，不允许聊天请求传任意 URL。
 - 搜索请求和所有重定向都要通过 `OutboundUrlValidator`，增加超时、响应大小和域名白名单。
-- 已提供默认关闭的 Tavily-compatible `GET /api/v1/web-search`，并限制超时、响应字节数、重定向和进程内缓存；仍待增加固定 provider 健康检查和权限审计。
+- 已提供默认关闭的 Tavily-compatible `GET /api/v1/web-search`，并限制超时、响应字节数、重定向和进程内缓存；仍待增加固定 provider 健康检查、鉴权和权限审计。
 - Ollama 使用本地模型列表接口；OpenAI Compatible 先尝试 `/models`，不支持时允许手工录入。
 - 同步结果写入缓存和数据库，失败不能删除上一次可用模型。
 

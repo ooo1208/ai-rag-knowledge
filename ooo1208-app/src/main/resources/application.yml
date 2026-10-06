@@ -36,3 +36,6 @@ app:
     execution:
       enabled: ${MCP_EXECUTION_ENABLED:false}
       timeout-ms: ${MCP_EXECUTION_TIMEOUT_MS:10000}
+      max-request-bytes: ${MCP_EXECUTION_MAX_REQUEST_BYTES:131072}
+      # 开启执行时必须配置精确域名或 *.example.com 形式的子域白名单。
+      allowed-hosts: ${MCP_EXECUTION_ALLOWED_HOSTS:}

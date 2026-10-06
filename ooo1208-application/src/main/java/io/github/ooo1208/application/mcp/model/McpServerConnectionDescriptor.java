@@ -6,7 +6,8 @@ import io.github.ooo1208.domain.mcp.McpTransportType;
  * MCP 服务器连接的内部调用描述。
  *
  * <p>该对象只在 application 到 infrastructure 的出站端口之间流转，不作为
- * HTTP 响应返回；endpoint 和 credentialRef 不得进入工具选择器 DTO。</p>
+ * HTTP 响应返回；endpoint 和 credentialRef 不得进入工具选择器 DTO。对于 SSE，
+ * endpointUrl 表示登记的 SSE 资源地址，适配器会据此解析基础路径。</p>
  */
 public record McpServerConnectionDescriptor(
         String serverId,

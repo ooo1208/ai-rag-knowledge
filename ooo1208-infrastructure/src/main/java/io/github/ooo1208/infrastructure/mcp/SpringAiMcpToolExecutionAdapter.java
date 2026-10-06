@@ -1,6 +1,7 @@
 package io.github.ooo1208.infrastructure.mcp;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import io.github.ooo1208.application.mcp.exception.McpToolExecutionException;
 import io.github.ooo1208.application.mcp.model.McpServerConnectionDescriptor;
 import io.github.ooo1208.application.mcp.model.McpToolExecutionResult;
@@ -16,9 +17,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.net.http.HttpClient;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -38,12 +44,14 @@ public final class SpringAiMcpToolExecutionAdapter
     private final int timeoutMillis;
     private final CredentialResolver credentialResolver;
     private final ObjectMapper objectMapper;
+    private final Set<String> allowedHosts;
 
     public SpringAiMcpToolExecutionAdapter(
             @Value("${app.mcp.execution.enabled:false}") boolean enabled,
             @Value("${app.mcp.execution.timeout-ms:10000}") int timeoutMillis,
             CredentialResolver credentialResolver,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            @Value("${app.mcp.execution.allowed-hosts:}") String allowedHosts
     ) {
         if (timeoutMillis < 100 || timeoutMillis > 30_000) {
             throw new IllegalArgumentException(
@@ -53,7 +61,13 @@ public final class SpringAiMcpToolExecutionAdapter
         this.enabled = enabled;
         this.timeoutMillis = timeoutMillis;
         this.credentialResolver = Objects.requireNonNull(credentialResolver);
-        this.objectMapper = Objects.requireNonNull(objectMapper);
+        this.objectMapper = constrainedObjectMapper(objectMapper);
+        this.allowedHosts = parseAllowedHosts(allowedHosts);
+        if (enabled && this.allowedHosts.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "MCP execution requires at least one allowed host"
+            );
+        }
     }
 
     @Override
@@ -94,9 +108,15 @@ public final class SpringAiMcpToolExecutionAdapter
                     McpToolExecutionException.Kind.POLICY
             );
         }
+        if (!isAllowedHost(endpoint.uri().getHost())) {
+            throw new McpToolExecutionException(
+                    "MCP endpoint host is not in the configured allowlist",
+                    McpToolExecutionException.Kind.POLICY
+            );
+        }
 
         HttpClientSseClientTransport.Builder transportBuilder =
-                HttpClientSseClientTransport.builder(endpoint.value())
+                buildSseTransport(endpoint)
                         .clientBuilder(
                                 HttpClient.newBuilder()
                                         .connectTimeout(
@@ -145,11 +165,110 @@ public final class SpringAiMcpToolExecutionAdapter
         } finally {
             if (client != null) {
                 try {
-                    client.closeGracefully();
+                    // 请求已经结束，立即关闭连接，避免 SDK 的固定 10 秒优雅关闭等待
+                    // 把一次已超时的 HTTP 请求再次拖长。
+                    client.close();
                 } catch (RuntimeException ignored) {
                     // 原始执行结果/错误优先于关闭阶段的次生异常。
                 }
             }
+        }
+    }
+
+    private ObjectMapper constrainedObjectMapper(ObjectMapper source) {
+        ObjectMapper copy = Objects.requireNonNull(source).copy();
+        copy.getFactory().setStreamReadConstraints(
+                StreamReadConstraints.builder()
+                        .maxNestingDepth(20)
+                        .maxDocumentLength(512 * 1024L)
+                        .maxStringLength(MAX_OUTPUT_LENGTH)
+                        .maxNameLength(2_000)
+                        .build()
+        );
+        return copy;
+    }
+
+    private Set<String> parseAllowedHosts(String rawAllowedHosts) {
+        if (rawAllowedHosts == null || rawAllowedHosts.isBlank()) {
+            return Set.of();
+        }
+        Set<String> hosts = Arrays.stream(rawAllowedHosts.split(","))
+                .map(String::trim)
+                .filter(host -> !host.isBlank())
+                .map(host -> host.toLowerCase(Locale.ROOT))
+                .collect(Collectors.toUnmodifiableSet());
+        if (hosts.stream().anyMatch(host ->
+                host.length() > 253
+                        || host.length() < 2
+                        || host.indexOf('/') >= 0
+                        || host.indexOf(':') >= 0
+                        || host.indexOf('*') >= 0 && !host.startsWith("*.")
+                        || host.equals("*.")
+                        || host.indexOf('*', 1) >= 0
+                        || host.chars().anyMatch(Character::isISOControl))) {
+            throw new IllegalArgumentException(
+                    "MCP execution allowed-hosts contains an invalid host"
+            );
+        }
+        return hosts;
+    }
+
+    private boolean isAllowedHost(String rawHost) {
+        if (rawHost == null || rawHost.isBlank()) {
+            return false;
+        }
+        String host = rawHost.toLowerCase(Locale.ROOT);
+        return allowedHosts.stream().anyMatch(pattern -> {
+            if (pattern.startsWith("*.")) {
+                String suffix = pattern.substring(1);
+                return host.endsWith(suffix)
+                        && !host.equals(suffix.substring(1));
+            }
+            return host.equals(pattern);
+        });
+    }
+
+    private HttpClientSseClientTransport.Builder buildSseTransport(
+            OutboundUrlValidator.ValidatedUrl endpoint
+    ) {
+        URI endpointUri = endpoint.uri();
+        String path = endpointUri.getPath();
+        if (path == null || path.isBlank() || "/".equals(path)) {
+            return HttpClientSseClientTransport.builder(
+                            baseUri(endpointUri, "/")
+                    )
+                    .sseEndpoint("/sse");
+        }
+
+        int lastSlash = path.lastIndexOf('/');
+        String parentPath = lastSlash < 0
+                ? "/"
+                : path.substring(0, lastSlash + 1);
+        String ssePath = path.substring(lastSlash + 1);
+        if (ssePath.isBlank()) {
+            ssePath = "sse";
+        }
+        return HttpClientSseClientTransport.builder(
+                        baseUri(endpointUri, parentPath)
+                )
+                .sseEndpoint(ssePath);
+    }
+
+    private String baseUri(URI endpointUri, String path) {
+        try {
+            return new URI(
+                    endpointUri.getScheme(),
+                    endpointUri.getRawAuthority(),
+                    path,
+                    null,
+                    null
+            ).toString();
+        } catch (URISyntaxException exception) {
+            throw new McpToolExecutionException(
+                    "MCP endpoint is not a valid URI",
+                    exception,
+                    McpToolExecutionException.Kind.POLICY
+            );
         }
     }
 

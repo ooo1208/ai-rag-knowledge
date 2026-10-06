@@ -24,13 +24,16 @@ HTTP 出站适配器共用的第一层校验工具：
 这层校验不是完整的网络隔离：DNS 校验和实际连接之间存在 TOCTOU 窗口。因此生产
 环境还需要代理/防火墙层 egress 规则、MCP 服务器 host allowlist、连接超时和响应
 大小限制。当前固定联网搜索适配器和第一版 SSE MCP 执行适配器已经在发送请求前调用
-该校验器；两者都必须先解析数据库里的稳定连接 ID，再调用校验器，禁止从
-`ChatRequest` 或工具执行请求直接接收 URL。
+该校验器；MCP 执行还强制要求 `MCP_EXECUTION_ALLOWED_HOSTS`，并且必须先解析数据库里的
+稳定连接 ID，禁止从 `ChatRequest` 或工具执行请求直接接收 URL。固定搜索 endpoint
+来自服务端配置，不应被误认为由数据库连接 ID 保护。动态模型聊天连接目前仍使用其
+登记的 Provider 地址创建客户端，尚未接入同一套 managed-provider host/port allowlist；
+因此不能把本文件的公网校验描述为已经覆盖 Ollama/OpenAI 模型调用。
 
 ## 后续接入顺序
 
-1. 为 MCP 连接目录增加 `transportType`、`endpointUrl`、`credentialRef` 和
-   `allowedHosts`，URL 只由管理员写入；
+1. 已在 MCP 连接目录落地 `transportType`、`endpointUrl`、`credentialRef`；当前
+   host allowlist 先由执行开关配置注入，后续再下沉为每台服务器的数据库字段，URL 只由管理员写入；
 2. MCP 工具同步、SSE 执行和联网搜索适配器在真正发起请求前调用
    `OutboundUrlValidator.validatePublicInternet(...)`；
 3. 联网搜索第一版已固定 Tavily-compatible provider、超时、响应字节级上限并禁止自动
