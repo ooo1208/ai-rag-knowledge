@@ -117,3 +117,11 @@ OpenAI Compatible 的 `baseUrl` 允许历史配置带 `/v1`，基础设施层在
 - 实际搜索和 MCP 执行后续再接入固定 provider 与官方 MCP client，所有重定向必须重新校验，所有工具输出都标记为不可信内容。
 
 这样可以先稳定前端选择契约和数据库白名单，再引入协议 SDK，不会把任意网络访问能力误认为已经安全可用。
+
+## ADR-013：联网搜索只允许固定 Provider 的只读入口
+
+状态：已采用，第一版已实现
+
+联网能力先落成 `NetworkSearchPort` 和 Tavily-compatible 基础设施适配器，默认关闭。HTTP 入口只接收查询文本和结果数量，Provider endpoint、凭证引用、超时和上限由服务端配置管理；搜索结果返回 `untrusted=true`，不能直接当作系统指令或 MCP 参数。
+
+出站请求在发送前通过 `OutboundUrlValidator`，JDK HTTP 客户端不自动跟随重定向。响应字节级上限、Provider 健康检查、缓存、权限审计和聊天上下文接入属于后续工作。这样“能联网搜索”与“允许任意 URL 抓取”保持明确区分。

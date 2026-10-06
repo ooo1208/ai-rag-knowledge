@@ -75,6 +75,24 @@
 
 先实现固定 provider 的只读联网搜索端口，再引入与当前 Spring AI 版本匹配的 MCP client 适配器；两者都必须复用出站校验、超时、响应大小和审计策略。
 
+## 2026-10-06：固定联网搜索 Provider 第一版
+
+### 行动
+
+- 新增 application `NetworkSearchPort`、`NetworkSearchQuery`、`NetworkSearchResult` 和 `SearchWebUseCase`。
+- 新增默认关闭的 Tavily-compatible HTTP 适配器；endpoint、credentialRef、超时和最大结果数只从服务端配置读取。
+- 新增 `GET /api/v1/web-search`，请求方不能传 URL、API Key 或抓取选项；结果统一带 `untrusted=true`。
+- 使用 `OutboundUrlValidator` 校验 Provider 地址，并使用 JDK HTTP 客户端禁止自动跟随重定向。
+
+### 结果
+
+- 默认配置不会对外发起联网请求，未启用时接口返回 `503`；启用后才解析凭证并访问固定 Provider。
+- `mvn -DskipTests compile` 通过；真实 Tavily-compatible 服务仍需配置 `WEB_SEARCH_ENABLED=true` 和 `TAVILY_API_KEY` 后验证。
+
+### 下一次行动
+
+补充响应字节级限制、Provider 健康检查和权限审计，再将搜索结果作为明确标记的不可信上下文接入聊天编排；随后评估 MCP transport 依赖和工具执行审批。
+
 ## 2026-10-03：统一聊天与 RAG 架构
 
 ### 行动

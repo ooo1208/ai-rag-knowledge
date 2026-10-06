@@ -6,7 +6,7 @@
 
 Phase 0 和 Phase 1 的核心代码已经落地：聊天和 RAG 都有统一的 application 用例，HTTP 层不再直接编排模型或向量库，Ollama 和 OpenAI Compatible 通过出站适配器接入。
 
-这一版已经完成模型目录数据库化、动态客户端、连接测试和 MCP 工具选择目录的第一版：Flyway 创建模型目录与 MCP 白名单表，JDBC 适配器读取启用的模型预设和工具绑定，聊天适配器会按解析结果创建对应的 Ollama 或 OpenAI Compatible 客户端，并提供基于已登记 `modelConfigId` 的轻量连接探针。基础设施层还增加了统一的公网出站 URL 校验边界，为后续联网搜索和远程 MCP 做准备。它仍不是最终的动态配置产品，管理员 API、权限控制、真实 MCP 执行和搜索 provider 还没有完成。
+这一版已经完成模型目录数据库化、动态客户端、连接测试、MCP 工具选择目录和固定联网搜索的第一版：Flyway 创建模型目录与 MCP 白名单表，JDBC 适配器读取启用的模型预设和工具绑定，聊天适配器会按解析结果创建对应的 Ollama 或 OpenAI Compatible 客户端，并提供基于已登记 `modelConfigId` 的轻量连接探针。基础设施层还增加了统一的公网出站 URL 校验边界和默认关闭的 Tavily-compatible 搜索适配器。它仍不是最终的动态配置产品，管理员 API、权限控制、真实 MCP 执行、搜索缓存与审计还没有完成。
 
 ## 已完成
 
@@ -53,7 +53,14 @@ Phase 0 和 Phase 1 的核心代码已经落地：聊天和 RAG 都有统一的 
 - `GET /api/v1/model-configs/{modelConfigId}/tools` 只返回已启用工具的稳定 ID、展示信息、只读和确认策略，不返回 endpoint、STDIO 命令或凭证引用。
 - application 层新增 `McpToolCatalogQueryPort` 和只读目录用例；MCP SDK 和传输细节仍留在 infrastructure 边界之外。
 - `OutboundUrlValidator` 统一限制后续 HTTP 出站访问：公网默认只允许 HTTP/HTTPS 的 80/443，并拒绝 userinfo、查询串、回环、私网、链路本地、CGNAT、元数据和组播地址。
-- 该安全边界已经可以复用于模型探针、联网搜索和远程 MCP；实际 MCP tool-call loop 和固定搜索 provider 尚未接入。
+- 该安全边界已经可以复用于模型探针、联网搜索和远程 MCP；实际 MCP tool-call loop 尚未接入。
+
+### 固定联网搜索第一版
+
+- application 层新增 `NetworkSearchPort`、查询/结果模型和 `SearchWebUseCase`，不携带 URL、API Key 或 Provider 细节。
+- infrastructure 提供默认关闭的 Tavily-compatible 适配器，endpoint、凭证引用、超时和结果上限只从服务端配置读取。
+- `GET /api/v1/web-search?query=...&maxResults=...` 只接受查询文本和数量上限，结果只返回标题、链接、摘要，并强制标记 `untrusted=true`。
+- Provider 请求前复用公网 URL 校验，JDK HTTP 客户端禁止自动跟随重定向；未配置 Provider 时返回明确的 `503`，不会让应用启动失败。
 
 ### 配置和可读性
 
@@ -99,7 +106,7 @@ ooo1208-app/target/ai-rag-knowledge.jar
 6. 会话保存实际调用的模型配置快照。
 7. 统一错误码、超时、重试、fallback、限流、用量和成本统计。
 8. EmbeddingProfile 和知识库级向量模型版本管理。
-9. 固定 provider 的联网搜索、结果清洗和不可信上下文标记。
+9. 固定 provider 的联网搜索、结果清洗和不可信上下文标记（第一版已完成）。
 10. MCP SSE/Streamable HTTP/STDIO 的受控连接、工具同步、执行审批和审计。
 
 ## 下一步执行顺序
@@ -126,10 +133,11 @@ ooo1208-app/target/ai-rag-knowledge.jar
 - 前端选择器消费 `modelConfigId`，不消费 API Key、Base URL 或上游模型 ID。
 - 已增加按 `modelConfigId` 查询 MCP 工具白名单的只读接口；当前只支持目录展示，还不能执行工具。
 
-### Step 4：接入受控联网搜索和模型发现
+### Step 4：接入受控联网搜索和模型发现（联网搜索第一版已完成）
 
 - 先固定一个服务端配置的 `SEARCH_ONLY` provider，不允许聊天请求传任意 URL。
 - 搜索请求和所有重定向都要通过 `OutboundUrlValidator`，增加超时、响应大小和域名白名单。
+- 已提供默认关闭的 Tavily-compatible `GET /api/v1/web-search`；仍待增加响应字节级限制、固定 provider 健康检查、缓存和权限审计。
 - Ollama 使用本地模型列表接口；OpenAI Compatible 先尝试 `/models`，不支持时允许手工录入。
 - 同步结果写入缓存和数据库，失败不能删除上一次可用模型。
 

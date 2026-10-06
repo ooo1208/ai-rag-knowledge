@@ -1,6 +1,6 @@
 # 动态模型平台产品路线图
 
-> 当前实现状态：Phase 0 和 Phase 1 的核心代码已完成，Phase 2 已完成数据库模型目录、动态客户端、连接测试和 MCP 工具目录的第一版链路；基础设施层已补上公网出站 URL 校验边界。详情见 [`project-status.md`](./project-status.md)。管理员配置、权限、联网搜索 provider 和 MCP 执行仍未完成。
+> 当前实现状态：Phase 0 和 Phase 1 的核心代码已完成，Phase 2 已完成数据库模型目录、动态客户端、连接测试、MCP 工具目录和固定联网搜索的第一版链路；基础设施层已补上公网出站 URL 校验边界。详情见 [`project-status.md`](./project-status.md)。管理员配置、权限、搜索缓存/审计和 MCP 执行仍未完成。
 
 ## 1. 产品目标
 
