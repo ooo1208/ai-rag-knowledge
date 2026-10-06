@@ -1,6 +1,6 @@
 # 动态模型平台产品路线图
 
-> 当前实现状态：Phase 0 和 Phase 1 的核心代码已完成，Phase 2 已完成数据库模型目录、动态客户端、连接测试、MCP 工具目录和固定联网搜索的第一版链路；基础设施层已补上公网出站 URL 校验边界。详情见 [`project-status.md`](./project-status.md)。管理员配置、权限、搜索缓存/审计和 MCP 执行仍未完成。
+> 当前实现状态：Phase 0 和 Phase 1 的核心代码已完成，Phase 2 已完成数据库模型目录、动态客户端、连接测试、MCP 工具目录、默认关闭的 SSE 只读执行和固定联网搜索的第一版链路；基础设施层已补上公网出站 URL 校验边界。详情见 [`project-status.md`](./project-status.md)。管理员配置、权限、搜索缓存/审计、MCP 工具同步和审批审计仍未完成。
 
 ## 1. 产品目标
 
@@ -169,7 +169,7 @@ POST /api/v1/chat/stream
 6. 模型 ID 与展示名称分离。
 7. 保存密钥时采用加密或外部 Secret 引用，不允许明文回显。
 8. 聊天客户端不再把 `application-dev.yml` 中的模型名称作为唯一运行时来源；配置文件仍可作为系统预置数据的种子。
-9. 增加 MCP server/tool 目录和模型预设绑定；只读工具选择 API 第一版已完成。
+9. 增加 MCP server/tool 目录和模型预设绑定；只读工具选择 API 和默认关闭的 SSE 只读执行第一版已完成。
 
 ### 验收标准
 
@@ -210,6 +210,10 @@ POST /api/v1/chat/stream
 - MCP 连接只能从数据库稳定 ID 解析，不能由请求携带 URL 或命令；
 - 远程 HTTP、SSE 和 Streamable HTTP 连接遵守公网/管理员 host allowlist、超时、响应大小和重定向策略；
 - STDIO 只运行系统预配置命令，写工具需要显式确认和审计。
+
+当前 MCP 执行边界：HTTP 入口只允许已绑定、只读且无需确认的工具；第一版仅支持 SSE，
+默认关闭并限制超时、无重定向和输出长度。Streamable HTTP、STDIO、写工具审批、工具
+同步和调用审计在开放前必须补齐。
 
 ## Phase 4：Embedding 和 RAG 产品化
 

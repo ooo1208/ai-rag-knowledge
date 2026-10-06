@@ -6,7 +6,7 @@
 
 Phase 0 和 Phase 1 的核心代码已经落地：聊天和 RAG 都有统一的 application 用例，HTTP 层不再直接编排模型或向量库，Ollama 和 OpenAI Compatible 通过出站适配器接入。
 
-这一版已经完成模型目录数据库化、动态客户端、连接测试、MCP 工具选择目录和固定联网搜索的第一版：Flyway 创建模型目录与 MCP 白名单表，JDBC 适配器读取启用的模型预设和工具绑定，聊天适配器会按解析结果创建对应的 Ollama 或 OpenAI Compatible 客户端，并提供基于已登记 `modelConfigId` 的轻量连接探针。基础设施层还增加了统一的公网出站 URL 校验边界和默认关闭的 Tavily-compatible 搜索适配器。它仍不是最终的动态配置产品，管理员 API、权限控制、真实 MCP 执行、搜索缓存与审计还没有完成。
+这一版已经完成模型目录数据库化、动态客户端、连接测试、MCP 工具选择目录、第一版 SSE MCP 只读执行和固定联网搜索：Flyway 创建模型目录与 MCP 白名单表，JDBC 适配器读取启用的模型预设、工具绑定和服务器连接，聊天适配器会按解析结果创建对应的 Ollama 或 OpenAI Compatible 客户端，并提供基于已登记 `modelConfigId` 的轻量连接探针。基础设施层还增加了统一的公网出站 URL 校验边界、默认关闭的 Tavily-compatible 搜索适配器和默认关闭的 MCP SSE 客户端。它仍不是最终的动态配置产品，管理员 API、权限控制、MCP 审批/审计、搜索缓存与审计还没有完成。
 
 ## 已完成
 
@@ -52,9 +52,10 @@ Phase 0 和 Phase 1 的核心代码已经落地：聊天和 RAG 都有统一的 
 - Flyway V2 创建 `mcp_server_connection`、`mcp_tool` 和 `model_preset_tool`，用模型预设绑定 MCP 工具白名单。
 - `GET /api/v1/model-configs/{modelConfigId}/tools` 只返回已启用工具的稳定 ID、展示信息、只读和确认策略，不返回 endpoint、STDIO 命令或凭证引用。
 - `POST /api/v1/model-configs/{modelConfigId}/tools/selection` 只接受稳定 `toolIds`，服务端按预设白名单校验、去除空白并保持选择顺序；未绑定或禁用工具直接返回 `400`。
+- `POST /api/v1/model-configs/{modelConfigId}/tools/{toolId}/execute` 已接入第一版执行入口；执行前再次校验模型预设白名单，只允许只读且无需确认的工具，参数最多 32 个；默认关闭时返回 `503`。
 - application 层新增 `McpToolCatalogQueryPort` 和只读目录用例；MCP SDK 和传输细节仍留在 infrastructure 边界之外。
 - `OutboundUrlValidator` 统一限制后续 HTTP 出站访问：公网默认只允许 HTTP/HTTPS 的 80/443，并拒绝 userinfo、查询串、回环、私网、链路本地、CGNAT、元数据和组播地址。
-- 该安全边界已经可以复用于模型探针、联网搜索和远程 MCP；实际 MCP tool-call loop 尚未接入。
+- `spring-ai-mcp` 只放在 infrastructure；第一版适配器使用 MCP Java SDK 的 SSE transport，每次调用创建并关闭短生命周期 client，限制超时、无重定向和输出长度；Streamable HTTP、STDIO、工具同步、审批和审计仍未完成。
 
 ### 固定联网搜索第一版
 
@@ -113,7 +114,7 @@ ooo1208-app/target/ai-rag-knowledge.jar
 7. 统一错误码、超时、重试、fallback、限流、用量和成本统计。
 8. EmbeddingProfile 和知识库级向量模型版本管理。
 9. 固定 provider 联网搜索的健康检查、缓存、权限审计和更细结果清洗（基础搜索与不可信上下文第一版已完成）。
-10. MCP SSE/Streamable HTTP/STDIO 的受控连接、工具同步、执行审批和审计。
+10. MCP Streamable HTTP/STDIO 的受控连接、工具同步、执行审批和审计；SSE 只读执行已有默认关闭的第一版适配器。
 
 ## 下一步执行顺序
 
@@ -138,7 +139,7 @@ ooo1208-app/target/ai-rag-knowledge.jar
 - 增加用户可见模型查询接口，只返回已启用且有权限使用的模型。
 - 前端选择器消费 `modelConfigId`，不消费 API Key、Base URL 或上游模型 ID。
 - 已增加 `GET /api/v1/model-configs` 安全模型摘要接口。
-- 已增加按 `modelConfigId` 查询和校验 MCP 工具白名单的接口；当前只支持目录/选择预检，还不能执行工具。
+- 已增加按 `modelConfigId` 查询、校验 MCP 工具白名单和执行只读工具的接口；执行默认关闭，当前只支持登记服务器的 SSE transport。
 
 ### Step 4：接入受控联网搜索和模型发现（联网搜索第一版已完成）
 
@@ -148,12 +149,12 @@ ooo1208-app/target/ai-rag-knowledge.jar
 - Ollama 使用本地模型列表接口；OpenAI Compatible 先尝试 `/models`，不支持时允许手工录入。
 - 同步结果写入缓存和数据库，失败不能删除上一次可用模型。
 
-### Step 5：接入 MCP 传输和执行策略
+### Step 5：接入 MCP 传输和执行策略（SSE 只读第一版已完成）
 
-- 增加官方 MCP client 适配器前，先锁定 Spring AI 版本和传输方式。
+- 已引入与当前 Spring Boot 版本兼容的 `spring-ai-mcp` 底层依赖；第一版只支持 SSE，不引入会直接升级 Boot 的 starter。
 - 只允许数据库中的稳定 `serverId`、`toolId`，禁止用户传 endpoint、命令或凭证。
-- 默认只读工具；写操作必须显式确认，STDIO 只能运行系统预配置命令。
-- 工具输出标记为不可信内容，并记录调用次数、耗时、错误和审批结果。
+- 已增加执行用例和 `POST /api/v1/model-configs/{modelConfigId}/tools/{toolId}/execute`；默认只读且无需确认的工具，工具输出标记为不可信内容。
+- 仍需补齐 Streamable HTTP、STDIO 命令白名单、写操作显式确认、调用审计/限流、工具同步和权限控制。
 
 ### Step 6：最后做 BYOK 和运营能力
 

@@ -1,7 +1,9 @@
 package io.github.ooo1208.trigger.http;
 
 import io.github.ooo1208.application.mcp.exception.McpToolSelectionException;
+import io.github.ooo1208.application.mcp.exception.McpToolExecutionException;
 import io.github.ooo1208.application.mcp.model.McpToolDescriptor;
+import io.github.ooo1208.application.mcp.port.in.ExecuteMcpToolUseCase;
 import io.github.ooo1208.application.mcp.port.in.ListModelToolsUseCase;
 import io.github.ooo1208.application.mcp.port.in.SelectModelToolsUseCase;
 import io.github.ooo1208.domain.modelcatalog.ModelConfigId;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -31,16 +34,21 @@ public final class ModelToolController {
 
     private final ListModelToolsUseCase listModelToolsUseCase;
     private final SelectModelToolsUseCase selectModelToolsUseCase;
+    private final ExecuteMcpToolUseCase executeMcpToolUseCase;
 
     public ModelToolController(
             ListModelToolsUseCase listModelToolsUseCase,
-            SelectModelToolsUseCase selectModelToolsUseCase
+            SelectModelToolsUseCase selectModelToolsUseCase,
+            ExecuteMcpToolUseCase executeMcpToolUseCase
     ) {
         this.listModelToolsUseCase = Objects.requireNonNull(
                 listModelToolsUseCase
         );
         this.selectModelToolsUseCase = Objects.requireNonNull(
                 selectModelToolsUseCase
+        );
+        this.executeMcpToolUseCase = Objects.requireNonNull(
+                executeMcpToolUseCase
         );
     }
 
@@ -74,6 +82,41 @@ public final class ModelToolController {
                     exception.getMessage()
             );
         }
+    }
+
+    @PostMapping("/{modelConfigId}/tools/{toolId}/execute")
+    public McpToolExecutionResponse executeTool(
+            @PathVariable String modelConfigId,
+            @PathVariable String toolId,
+            @RequestBody(required = false) McpToolExecutionRequest request
+    ) {
+        Map<String, Object> arguments = request == null
+                ? Map.of()
+                : request.arguments();
+        try {
+            return McpToolExecutionResponse.from(
+                    executeMcpToolUseCase.execute(
+                            new ModelConfigId(modelConfigId),
+                            toolId,
+                            arguments
+                    )
+            );
+        } catch (McpToolExecutionException exception) {
+            throw new ResponseStatusException(
+                    statusFor(exception.kind()),
+                    exception.getMessage()
+            );
+        }
+    }
+
+    private static HttpStatus statusFor(
+            McpToolExecutionException.Kind kind
+    ) {
+        return switch (kind) {
+            case POLICY -> HttpStatus.BAD_REQUEST;
+            case UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
+            case PROVIDER -> HttpStatus.BAD_GATEWAY;
+        };
     }
 
     /**

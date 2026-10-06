@@ -112,6 +112,22 @@
 
 补充响应字节级限制、Provider 健康检查和权限审计，再将搜索结果作为明确标记的不可信上下文接入聊天编排；随后评估 MCP transport 依赖和工具执行审批。
 
+## 2026-10-06：MCP SSE 只读执行第一版
+
+### 行动
+
+- application 层新增 `ExecuteMcpToolUseCase`、服务器连接查询端口和工具执行端口；执行前再次解析模型预设白名单。
+- 只允许 `readOnly=true` 且 `requiresConfirmation=false` 的工具，参数最多 32 个，拒绝控制字符和过长参数名。
+- infrastructure 引入与当前 Spring Boot 3.3.6 兼容的 `spring-ai-mcp` 底层依赖，增加默认关闭的 SSE client 适配器。
+- SSE 出站连接只读取数据库中的启用服务器，复用公网 URL 校验、连接/请求超时、禁止重定向和 20,000 字符输出上限；工具结果固定标记 `untrusted=true`。
+- 新增 `POST /api/v1/model-configs/{modelConfigId}/tools/{toolId}/execute`，不接受 endpoint、命令或 credentialRef。
+
+### 结果
+
+- 默认 `MCP_EXECUTION_ENABLED=false`，未显式开启时返回 `503`；策略拒绝返回 `400`，Provider 错误返回 `502`。
+- application 新增 4 个执行策略单元测试；`mvn -pl ooo1208-application,ooo1208-infrastructure -am test -DskipTests=false` 通过（12 个测试）。
+- Streamable HTTP、STDIO、工具同步、写操作审批、权限和调用审计仍未开放；真实 MCP 服务连接尚未在当前环境验证。
+
 ## 2026-10-03：统一聊天与 RAG 架构
 
 ### 行动

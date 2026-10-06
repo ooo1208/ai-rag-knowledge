@@ -77,8 +77,9 @@
 ### 联网搜索与 MCP 协议
 
 当前联网搜索只实现 Tavily-compatible 的 HTTP 请求/响应形状，没有复制第三方 SDK 或代码；
-endpoint 和密钥由服务端配置管理，默认关闭。MCP 目前只落地数据库工具目录和选择契约，
-尚未引入具体 MCP client 依赖，待确认 Spring AI 版本和传输安全边界后再接入。
+endpoint 和密钥由服务端配置管理，默认关闭。MCP 使用与当前 Boot 版本兼容的
+`spring-ai-mcp` 底层 client，仅接入默认关闭的 SSE 只读执行适配器；没有把连接地址、
+命令或凭证暴露给请求方。Streamable HTTP、STDIO 和审批审计仍待后续实现。
 
 我们不追求一次性复制这些项目的全部能力。当前只保留最小闭环：
 

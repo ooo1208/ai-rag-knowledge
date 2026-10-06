@@ -107,7 +107,7 @@ OpenAI Compatible 的 `baseUrl` 允许历史配置带 `/v1`，基础设施层在
 
 ## ADR-012：联网和 MCP 先做服务端目录与出站安全边界
 
-状态：已采用，执行适配器待实现
+状态：已采用，SSE 只读执行第一版已实现
 
 联网搜索和远程 MCP 都会让服务端代替调用方访问外部地址。第一步不开放请求方传任意 URL、API Key、STDIO 命令或工具参数，而是：
 
@@ -116,7 +116,8 @@ OpenAI Compatible 的 `baseUrl` 允许历史配置带 `/v1`，基础设施层在
 - 通过 `POST /api/v1/model-configs/{modelConfigId}/tools/selection` 只预检已绑定的 `toolId`，不接受 endpoint、命令或凭证；
 - 通过 `GET /api/v1/model-configs` 暴露模型选择器摘要，前端只消费稳定 `modelConfigId`，不直接消费 Provider 连接细节；
 - 基础设施层统一调用 `OutboundUrlValidator`，公网默认只允许 HTTP/HTTPS 的 80/443，并拒绝解析到回环、私网、链路本地、CGNAT、元数据、保留或组播地址；
-- 实际搜索和 MCP 执行后续再接入固定 provider 与官方 MCP client，所有重定向必须重新校验，所有工具输出都标记为不可信内容。
+- 固定搜索和 MCP 执行通过基础设施适配器接入；MCP 第一版只使用 `spring-ai-mcp` 的 SSE transport，所有工具输出标记为不可信内容，所有出站连接仍需超时、无重定向和 URL 校验。
+- MCP 执行默认关闭，只允许只读且无需确认的工具；Streamable HTTP、STDIO、写操作审批、工具同步和审计后续单独设计。
 
 这样可以先稳定前端选择契约和数据库白名单，再引入协议 SDK，不会把任意网络访问能力误认为已经安全可用。
 

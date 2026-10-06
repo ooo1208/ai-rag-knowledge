@@ -57,8 +57,11 @@ ooo1208-trigger      ooo1208-infrastructure
 
 - `mcp/model/McpToolDescriptor`：暴露给选择器的安全工具摘要。
 - `mcp/port/in/ListModelToolsUseCase`：按模型配置列出允许工具的入站用例。
+- `mcp/port/in/ExecuteMcpToolUseCase`：执行已绑定且通过只读策略的工具。
 - `mcp/port/out/McpToolCatalogQueryPort`：工具目录查询出站端口。
+- `mcp/port/out/McpServerConnectionQueryPort` / `McpToolExecutionPort`：解析登记连接并隔离 MCP SDK。
 - `mcp/service/McpToolCatalogApplicationService`：只读工具目录用例编排。
+- `mcp/service/McpToolExecutionApplicationService`：再次校验工具白名单、只读策略和参数边界。
 
 ### `ooo1208-infrastructure`
 
@@ -72,6 +75,8 @@ ooo1208-trigger      ooo1208-infrastructure
 - `modelcatalog/InMemoryModelConfigQueryAdapter`：仅在 `in-memory-model-config` profile 下作为过渡实现。
 - `mcp/JdbcMcpToolCatalogQueryAdapter`：按模型预设、工具绑定和服务器状态查询 MCP 白名单。
 - `mcp/InMemoryMcpToolCatalogQueryAdapter`：离线 profile 返回空工具集，不伪造外部工具。
+- `mcp/JdbcMcpServerConnectionQueryAdapter`：只读取启用且 ACTIVE 的登记服务器连接。
+- `mcp/SpringAiMcpToolExecutionAdapter`：默认关闭的 SSE MCP client，限制公网 URL、超时、无重定向和不可信输出。
 - `network/OutboundUrlValidator`：联网搜索、远程 MCP 和受控 Provider 共用的公网 URL 安全校验。
 - `websearch/TavilyCompatibleNetworkSearchAdapter`：默认关闭的固定 Provider 搜索适配器，凭证只从配置引用解析。
 - `rag/PgVectorRagRetrieverAdapter`：PgVector 检索。
@@ -86,7 +91,7 @@ ooo1208-trigger      ooo1208-infrastructure
 
 - `ChatController`：`POST /api/v1/chat` 和 `/api/v1/chat/stream`。
 - `ModelConnectionController`：`POST /api/v1/model-connections/test`。
-- `ModelToolController`：`GET /api/v1/model-configs/{modelConfigId}/tools` 和 `POST /api/v1/model-configs/{modelConfigId}/tools/selection`。
+- `ModelToolController`：工具目录、选择预检，以及 `POST /api/v1/model-configs/{modelConfigId}/tools/{toolId}/execute`。
 - `ModelConfigController`：`GET /api/v1/model-configs`，返回不含凭证和连接地址的模型摘要。
 - `WebSearchController`：`GET /api/v1/web-search`，只接收查询文本和结果数量。
 - `RagController`：知识库上传、Git 分析和标签查询。
@@ -122,4 +127,4 @@ ChatController
 
 ## 当前阶段边界
 
-当前数据库模型目录已经具备初始表结构、读取适配器、动态聊天客户端工厂和已登记配置的轻量连接测试；MCP 工具目录也已具备 V2 表结构、按模型预设的读取适配器和只读 HTTP 选择接口；固定联网搜索第一版已具备 application 端口、默认关闭的 Tavily-compatible 适配器和 HTTP 入口，公网出站 URL 有统一校验边界。管理员 CRUD、权限控制、响应字节级限制、真实 MCP transport/tool-call loop、用户自定义 API Key、模型自动发现和完整前端选择器属于后续阶段。
+当前数据库模型目录已经具备初始表结构、读取适配器、动态聊天客户端工厂和已登记配置的轻量连接测试；MCP 工具目录具备 V2 表结构、按模型预设的读取/选择适配器和默认关闭的 SSE 只读执行入口；固定联网搜索第一版已具备 application 端口、默认关闭的 Tavily-compatible 适配器和 HTTP 入口，公网出站 URL 有统一校验边界。管理员 CRUD、权限控制、MCP 工具同步、Streamable HTTP/STDIO、审批审计、用户自定义 API Key、模型自动发现和完整前端选择器属于后续阶段。
