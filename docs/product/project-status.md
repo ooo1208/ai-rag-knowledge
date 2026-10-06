@@ -51,6 +51,7 @@ Phase 0 和 Phase 1 的核心代码已经落地：聊天和 RAG 都有统一的 
 
 - Flyway V2 创建 `mcp_server_connection`、`mcp_tool` 和 `model_preset_tool`，用模型预设绑定 MCP 工具白名单。
 - `GET /api/v1/model-configs/{modelConfigId}/tools` 只返回已启用工具的稳定 ID、展示信息、只读和确认策略，不返回 endpoint、STDIO 命令或凭证引用。
+- `POST /api/v1/model-configs/{modelConfigId}/tools/selection` 只接受稳定 `toolIds`，服务端按预设白名单校验、去除空白并保持选择顺序；未绑定或禁用工具直接返回 `400`。
 - application 层新增 `McpToolCatalogQueryPort` 和只读目录用例；MCP SDK 和传输细节仍留在 infrastructure 边界之外。
 - `OutboundUrlValidator` 统一限制后续 HTTP 出站访问：公网默认只允许 HTTP/HTTPS 的 80/443，并拒绝 userinfo、查询串、回环、私网、链路本地、CGNAT、元数据和组播地址。
 - 该安全边界已经可以复用于模型探针、联网搜索和远程 MCP；实际 MCP tool-call loop 尚未接入。
@@ -131,7 +132,7 @@ ooo1208-app/target/ai-rag-knowledge.jar
 - 增加管理员模型配置接口。
 - 增加用户可见模型查询接口，只返回已启用且有权限使用的模型。
 - 前端选择器消费 `modelConfigId`，不消费 API Key、Base URL 或上游模型 ID。
-- 已增加按 `modelConfigId` 查询 MCP 工具白名单的只读接口；当前只支持目录展示，还不能执行工具。
+- 已增加按 `modelConfigId` 查询和校验 MCP 工具白名单的接口；当前只支持目录/选择预检，还不能执行工具。
 
 ### Step 4：接入受控联网搜索和模型发现（联网搜索第一版已完成）
 

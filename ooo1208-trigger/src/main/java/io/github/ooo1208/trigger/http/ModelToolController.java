@@ -1,13 +1,19 @@
 package io.github.ooo1208.trigger.http;
 
+import io.github.ooo1208.application.mcp.exception.McpToolSelectionException;
 import io.github.ooo1208.application.mcp.model.McpToolDescriptor;
 import io.github.ooo1208.application.mcp.port.in.ListModelToolsUseCase;
+import io.github.ooo1208.application.mcp.port.in.SelectModelToolsUseCase;
 import io.github.ooo1208.domain.modelcatalog.ModelConfigId;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Objects;
@@ -24,10 +30,17 @@ import java.util.Objects;
 public final class ModelToolController {
 
     private final ListModelToolsUseCase listModelToolsUseCase;
+    private final SelectModelToolsUseCase selectModelToolsUseCase;
 
-    public ModelToolController(ListModelToolsUseCase listModelToolsUseCase) {
+    public ModelToolController(
+            ListModelToolsUseCase listModelToolsUseCase,
+            SelectModelToolsUseCase selectModelToolsUseCase
+    ) {
         this.listModelToolsUseCase = Objects.requireNonNull(
                 listModelToolsUseCase
+        );
+        this.selectModelToolsUseCase = Objects.requireNonNull(
+                selectModelToolsUseCase
         );
     }
 
@@ -39,6 +52,28 @@ public final class ModelToolController {
                 .stream()
                 .map(ModelToolResponse::from)
                 .toList();
+    }
+
+    @PostMapping("/{modelConfigId}/tools/selection")
+    public List<ModelToolResponse> selectTools(
+            @PathVariable String modelConfigId,
+            @RequestBody ModelToolSelectionRequest request
+    ) {
+        Objects.requireNonNull(request, "request");
+        try {
+            return selectModelToolsUseCase.select(
+                            new ModelConfigId(modelConfigId),
+                            request.toolIds()
+                    )
+                    .stream()
+                    .map(ModelToolResponse::from)
+                    .toList();
+        } catch (McpToolSelectionException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    exception.getMessage()
+            );
+        }
     }
 
     /**

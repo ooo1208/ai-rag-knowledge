@@ -113,6 +113,7 @@ OpenAI Compatible 的 `baseUrl` 允许历史配置带 `/v1`，基础设施层在
 
 - 用 `mcp_server_connection`、`mcp_tool` 和 `model_preset_tool` 保存管理员登记的连接、工具和模型白名单；
 - 通过 `GET /api/v1/model-configs/{modelConfigId}/tools` 只返回可选择的安全摘要；
+- 通过 `POST /api/v1/model-configs/{modelConfigId}/tools/selection` 只预检已绑定的 `toolId`，不接受 endpoint、命令或凭证；
 - 基础设施层统一调用 `OutboundUrlValidator`，公网默认只允许 HTTP/HTTPS 的 80/443，并拒绝解析到回环、私网、链路本地、CGNAT、元数据、保留或组播地址；
 - 实际搜索和 MCP 执行后续再接入固定 provider 与官方 MCP client，所有重定向必须重新校验，所有工具输出都标记为不可信内容。
 

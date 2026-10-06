@@ -79,7 +79,7 @@ ooo1208-trigger      ooo1208-infrastructure
 
 - `ChatController`：`POST /api/v1/chat` 和 `/api/v1/chat/stream`。
 - `ModelConnectionController`：`POST /api/v1/model-connections/test`。
-- `ModelToolController`：`GET /api/v1/model-configs/{modelConfigId}/tools`。
+- `ModelToolController`：`GET /api/v1/model-configs/{modelConfigId}/tools` 和 `POST /api/v1/model-configs/{modelConfigId}/tools/selection`。
 - `WebSearchController`：`GET /api/v1/web-search`，只接收查询文本和结果数量。
 - `RagController`：知识库上传、Git 分析和标签查询。
 - `ChatRequest`：聊天 HTTP 请求 DTO。
