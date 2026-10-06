@@ -46,6 +46,13 @@ ooo1208-trigger      ooo1208-infrastructure
 - `rag/command/*`：知识库操作命令。
 - `rag/model/*`：不依赖 Web 或 Spring AI 的文件模型。
 
+#### MCP 工具目录
+
+- `mcp/model/McpToolDescriptor`：暴露给选择器的安全工具摘要。
+- `mcp/port/in/ListModelToolsUseCase`：按模型配置列出允许工具的入站用例。
+- `mcp/port/out/McpToolCatalogQueryPort`：工具目录查询出站端口。
+- `mcp/service/McpToolCatalogApplicationService`：只读工具目录用例编排。
+
 ### `ooo1208-infrastructure`
 
 基础设施层实现 application 定义的出站端口。
@@ -56,6 +63,9 @@ ooo1208-trigger      ooo1208-infrastructure
 - `modelcatalog/ModelConnectionTestAdapter`：通过 Ollama 模型列表或 OpenAI Compatible `/v1/models` 进行轻量探针。
 - `modelcatalog/JdbcModelConfigQueryAdapter`：从 PostgreSQL 模型目录读取启用的模型预设。
 - `modelcatalog/InMemoryModelConfigQueryAdapter`：仅在 `in-memory-model-config` profile 下作为过渡实现。
+- `mcp/JdbcMcpToolCatalogQueryAdapter`：按模型预设、工具绑定和服务器状态查询 MCP 白名单。
+- `mcp/InMemoryMcpToolCatalogQueryAdapter`：离线 profile 返回空工具集，不伪造外部工具。
+- `network/OutboundUrlValidator`：联网搜索、远程 MCP 和受控 Provider 共用的公网 URL 安全校验。
 - `rag/PgVectorRagRetrieverAdapter`：PgVector 检索。
 - `rag/PgVectorRagDocumentStoreAdapter`：Tika 解析、切分和向量写入。
 - `rag/RedisRagTagStoreAdapter`：Redis 标签存储。
@@ -68,6 +78,7 @@ ooo1208-trigger      ooo1208-infrastructure
 
 - `ChatController`：`POST /api/v1/chat` 和 `/api/v1/chat/stream`。
 - `ModelConnectionController`：`POST /api/v1/model-connections/test`。
+- `ModelToolController`：`GET /api/v1/model-configs/{modelConfigId}/tools`。
 - `RagController`：知识库上传、Git 分析和标签查询。
 - `ChatRequest`：聊天 HTTP 请求 DTO。
 - `ModelConnectionTestRequest/Response`：连接测试请求和稳定的 HTTP 结果 DTO。
@@ -100,4 +111,4 @@ ChatController
 
 ## 当前阶段边界
 
-当前数据库模型目录已经具备初始表结构、读取适配器、动态聊天客户端工厂和已登记配置的轻量连接测试。管理员 CRUD、权限控制、用户自定义 API Key、模型自动发现和前端模型选择器属于后续阶段。
+当前数据库模型目录已经具备初始表结构、读取适配器、动态聊天客户端工厂和已登记配置的轻量连接测试；MCP 工具目录也已具备 V2 表结构、按模型预设的读取适配器和只读 HTTP 选择接口，公网出站 URL 有统一校验边界。管理员 CRUD、权限控制、联网搜索 provider、真实 MCP transport/tool-call loop、用户自定义 API Key、模型自动发现和完整前端选择器属于后续阶段。

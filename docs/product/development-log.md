@@ -57,6 +57,24 @@
 
 增加管理员模型目录 CRUD 和权限边界，再把连接测试接入启用流程。
 
+## 2026-10-06：MCP 工具目录和联网出站边界第一版
+
+### 行动
+
+- 新增 Flyway V2：`mcp_server_connection`、`mcp_tool`、`model_preset_tool`，以模型预设绑定 MCP 工具白名单。
+- 新增 application 端口和只读用例，暴露 `GET /api/v1/model-configs/{modelConfigId}/tools`。
+- 工具查询同时检查模型预设、绑定、工具和服务器的启用状态；返回值不包含 endpoint、STDIO 命令或凭证引用。
+- 新增 `OutboundUrlValidator`，为公网 HTTP 出站统一拒绝 userinfo、查询串、危险端口及私网/回环/链路本地/元数据地址。
+
+### 结果
+
+- `mvn -DskipTests compile` 通过，7 个模块成功。
+- 当前只完成安全目录和边界，尚未接入真实 MCP transport、工具执行 loop 或固定联网搜索 provider。
+
+### 下一次行动
+
+先实现固定 provider 的只读联网搜索端口，再引入与当前 Spring AI 版本匹配的 MCP client 适配器；两者都必须复用出站校验、超时、响应大小和审计策略。
+
 ## 2026-10-03：统一聊天与 RAG 架构
 
 ### 行动

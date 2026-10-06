@@ -104,3 +104,16 @@ RAG 检索不生成 Prompt，PromptAssembler 不访问向量库，模型适配�
 启动时只补齐不存在的系统预置配置，不覆盖数据库中已有的连接、模型和预设。聊天适配器通过 `ChatModelFactory` 按本次解析结果创建客户端；启动时的模型 Bean 仍保留给 Embedding 和兼容场景使用。连接测试第一版通过已登记 `modelConfigId` 的轻量探针提供，管理员权限、客户端缓存和失效策略属于后续阶段。
 
 OpenAI Compatible 的 `baseUrl` 允许历史配置带 `/v1`，基础设施层在构造 Spring AI `OpenAiApi` 时统一去掉末尾版本路径，使用 SDK 默认的 `/v1/chat/completions` 和 `/v1/embeddings` 路径，避免重复拼接。
+
+## ADR-012：联网和 MCP 先做服务端目录与出站安全边界
+
+状态：已采用，执行适配器待实现
+
+联网搜索和远程 MCP 都会让服务端代替调用方访问外部地址。第一步不开放请求方传任意 URL、API Key、STDIO 命令或工具参数，而是：
+
+- 用 `mcp_server_connection`、`mcp_tool` 和 `model_preset_tool` 保存管理员登记的连接、工具和模型白名单；
+- 通过 `GET /api/v1/model-configs/{modelConfigId}/tools` 只返回可选择的安全摘要；
+- 基础设施层统一调用 `OutboundUrlValidator`，公网默认只允许 HTTP/HTTPS 的 80/443，并拒绝解析到回环、私网、链路本地、CGNAT、元数据、保留或组播地址；
+- 实际搜索和 MCP 执行后续再接入固定 provider 与官方 MCP client，所有重定向必须重新校验，所有工具输出都标记为不可信内容。
+
+这样可以先稳定前端选择契约和数据库白名单，再引入协议 SDK，不会把任意网络访问能力误认为已经安全可用。
