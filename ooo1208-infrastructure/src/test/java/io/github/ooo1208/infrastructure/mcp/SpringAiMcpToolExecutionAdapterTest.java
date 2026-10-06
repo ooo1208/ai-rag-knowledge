@@ -8,10 +8,18 @@ import io.github.ooo1208.infrastructure.config.CredentialResolver;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Flow;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * MCP SSE 适配器在真正连接 Provider 前的安全策略测试。
@@ -128,6 +136,44 @@ class SpringAiMcpToolExecutionAdapterTest {
         );
     }
 
+    @Test
+    void rawSseEventLimitCancelsBeforeForwardingToSdkParser() {
+        RecordingBodySubscriber delegate = new RecordingBodySubscriber();
+        SpringAiMcpToolExecutionAdapter.CappedBodySubscriber<String> capped =
+                new SpringAiMcpToolExecutionAdapter.CappedBodySubscriber<>(
+                        delegate,
+                        8
+                );
+        RecordingSubscription subscription = new RecordingSubscription();
+        capped.onSubscribe(subscription);
+
+        capped.onNext(List.of(ByteBuffer.wrap(
+                "data:xxx\n\n".getBytes(StandardCharsets.UTF_8)
+        )));
+
+        assertTrue(delegate.body.isCompletedExceptionally());
+        assertTrue(subscription.cancelled);
+        assertEquals(0, delegate.forwardedBuffers);
+    }
+
+    @Test
+    void rawSseEventLimitResetsAfterBlankEventLine() {
+        RecordingBodySubscriber delegate = new RecordingBodySubscriber();
+        SpringAiMcpToolExecutionAdapter.CappedBodySubscriber<String> capped =
+                new SpringAiMcpToolExecutionAdapter.CappedBodySubscriber<>(
+                        delegate,
+                        8
+                );
+        capped.onSubscribe(new RecordingSubscription());
+
+        capped.onNext(List.of(ByteBuffer.wrap(
+                "x\n\ny\n\n".getBytes(StandardCharsets.UTF_8)
+        )));
+
+        assertFalse(delegate.body.isCompletedExceptionally());
+        assertEquals(1, delegate.forwardedBuffers);
+    }
+
     private SpringAiMcpToolExecutionAdapter newAdapter(boolean enabled) {
         return new SpringAiMcpToolExecutionAdapter(
                 enabled,
@@ -136,5 +182,52 @@ class SpringAiMcpToolExecutionAdapterTest {
                 new ObjectMapper(),
                 "example.com"
         );
+    }
+
+    private static final class RecordingBodySubscriber
+            implements java.net.http.HttpResponse.BodySubscriber<String> {
+
+        private final CompletableFuture<String> body = new CompletableFuture<>();
+        private int forwardedBuffers;
+
+        @Override
+        public void onSubscribe(Flow.Subscription subscription) {
+            subscription.request(1);
+        }
+
+        @Override
+        public void onNext(List<ByteBuffer> items) {
+            forwardedBuffers++;
+        }
+
+        @Override
+        public void onError(Throwable throwable) {
+            body.completeExceptionally(throwable);
+        }
+
+        @Override
+        public void onComplete() {
+            body.complete("ok");
+        }
+
+        @Override
+        public CompletionStage<String> getBody() {
+            return body;
+        }
+    }
+
+    private static final class RecordingSubscription
+            implements Flow.Subscription {
+
+        private boolean cancelled;
+
+        @Override
+        public void request(long count) {
+        }
+
+        @Override
+        public void cancel() {
+            cancelled = true;
+        }
     }
 }

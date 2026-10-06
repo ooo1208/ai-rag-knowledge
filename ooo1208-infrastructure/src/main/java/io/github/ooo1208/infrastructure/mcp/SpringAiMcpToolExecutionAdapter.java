@@ -18,11 +18,26 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.net.http.HttpClient;
+import java.net.http.HttpResponse;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.CookieHandler;
+import java.net.Authenticator;
+import java.net.ProxySelector;
+import java.nio.ByteBuffer;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
 import java.time.Duration;
+import java.net.http.WebSocket;
+import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Flow;
 import java.util.stream.Collectors;
 
 /**
@@ -37,6 +52,7 @@ public final class SpringAiMcpToolExecutionAdapter
         implements McpToolExecutionPort {
 
     private static final int MAX_OUTPUT_LENGTH = 20_000;
+    private static final long MAX_SSE_EVENT_BYTES = 512 * 1024L;
 
     private final boolean enabled;
     private final int timeoutMillis;
@@ -116,13 +132,18 @@ public final class SpringAiMcpToolExecutionAdapter
         HttpClientSseClientTransport.Builder transportBuilder =
                 buildSseTransport(endpoint)
                         .clientBuilder(
-                                HttpClient.newBuilder()
-                                        .connectTimeout(
-                                                Duration.ofMillis(timeoutMillis)
-                                        )
-                                        .followRedirects(
-                                                HttpClient.Redirect.NEVER
-                                        )
+                                new CappedHttpClientBuilder(
+                                        HttpClient.newBuilder()
+                                                .connectTimeout(
+                                                        Duration.ofMillis(
+                                                                timeoutMillis
+                                                        )
+                                                )
+                                                .followRedirects(
+                                                        HttpClient.Redirect.NEVER
+                                                ),
+                                        MAX_SSE_EVENT_BYTES
+                                )
                         )
                         .objectMapper(objectMapper);
         if (apiKey != null) {
@@ -227,6 +248,302 @@ public final class SpringAiMcpToolExecutionAdapter
                     exception,
                     McpToolExecutionException.Kind.POLICY
             );
+        }
+    }
+
+    /**
+     * MCP SDK 0.10.0 的 SSE parser 会在交给 Jackson 前拼接完整 event。
+     * 这个 builder 在 HTTP client 层包一层订阅者，先限制原始 event 的大小，
+     * 避免巨型单 event 绕过 JSON parser 的约束。
+     */
+    static final class CappedHttpClientBuilder
+            implements HttpClient.Builder {
+
+        private final HttpClient.Builder delegate;
+        private final long maxEventBytes;
+
+        CappedHttpClientBuilder(
+                HttpClient.Builder delegate,
+                long maxEventBytes
+        ) {
+            this.delegate = Objects.requireNonNull(delegate);
+            this.maxEventBytes = maxEventBytes;
+        }
+
+        @Override
+        public HttpClient.Builder cookieHandler(CookieHandler cookieHandler) {
+            delegate.cookieHandler(cookieHandler);
+            return this;
+        }
+
+        @Override
+        public HttpClient.Builder connectTimeout(Duration duration) {
+            delegate.connectTimeout(duration);
+            return this;
+        }
+
+        @Override
+        public HttpClient.Builder sslContext(SSLContext sslContext) {
+            delegate.sslContext(sslContext);
+            return this;
+        }
+
+        @Override
+        public HttpClient.Builder sslParameters(
+                SSLParameters sslParameters
+        ) {
+            delegate.sslParameters(sslParameters);
+            return this;
+        }
+
+        @Override
+        public HttpClient.Builder executor(Executor executor) {
+            delegate.executor(executor);
+            return this;
+        }
+
+        @Override
+        public HttpClient.Builder followRedirects(
+                HttpClient.Redirect policy
+        ) {
+            delegate.followRedirects(policy);
+            return this;
+        }
+
+        @Override
+        public HttpClient.Builder version(HttpClient.Version version) {
+            delegate.version(version);
+            return this;
+        }
+
+        @Override
+        public HttpClient.Builder priority(int priority) {
+            delegate.priority(priority);
+            return this;
+        }
+
+        @Override
+        public HttpClient.Builder proxy(ProxySelector proxySelector) {
+            delegate.proxy(proxySelector);
+            return this;
+        }
+
+        @Override
+        public HttpClient.Builder authenticator(Authenticator authenticator) {
+            delegate.authenticator(authenticator);
+            return this;
+        }
+
+        @Override
+        public HttpClient.Builder localAddress(
+                java.net.InetAddress localAddress
+        ) {
+            delegate.localAddress(localAddress);
+            return this;
+        }
+
+        @Override
+        public HttpClient build() {
+            return new CappedHttpClient(delegate.build(), maxEventBytes);
+        }
+    }
+
+    static final class CappedHttpClient extends HttpClient {
+
+        private final HttpClient delegate;
+        private final long maxEventBytes;
+
+        CappedHttpClient(HttpClient delegate, long maxEventBytes) {
+            this.delegate = Objects.requireNonNull(delegate);
+            this.maxEventBytes = maxEventBytes;
+        }
+
+        @Override
+        public Optional<CookieHandler> cookieHandler() {
+            return delegate.cookieHandler();
+        }
+
+        @Override
+        public Optional<Duration> connectTimeout() {
+            return delegate.connectTimeout();
+        }
+
+        @Override
+        public Redirect followRedirects() {
+            return delegate.followRedirects();
+        }
+
+        @Override
+        public Optional<ProxySelector> proxy() {
+            return delegate.proxy();
+        }
+
+        @Override
+        public SSLContext sslContext() {
+            return delegate.sslContext();
+        }
+
+        @Override
+        public SSLParameters sslParameters() {
+            return delegate.sslParameters();
+        }
+
+        @Override
+        public Optional<Executor> executor() {
+            return delegate.executor();
+        }
+
+        @Override
+        public Version version() {
+            return delegate.version();
+        }
+
+        @Override
+        public Optional<Authenticator> authenticator() {
+            return delegate.authenticator();
+        }
+
+        @Override
+        public WebSocket.Builder newWebSocketBuilder() {
+            return delegate.newWebSocketBuilder();
+        }
+
+        @Override
+        public <T> HttpResponse<T> send(
+                java.net.http.HttpRequest request,
+                HttpResponse.BodyHandler<T> responseBodyHandler
+        ) throws IOException, InterruptedException {
+            return delegate.send(
+                    request,
+                    cappedHandler(responseBodyHandler)
+            );
+        }
+
+        @Override
+        public <T> CompletableFuture<HttpResponse<T>> sendAsync(
+                java.net.http.HttpRequest request,
+                HttpResponse.BodyHandler<T> responseBodyHandler
+        ) {
+            return delegate.sendAsync(
+                    request,
+                    cappedHandler(responseBodyHandler)
+            );
+        }
+
+        @Override
+        public <T> CompletableFuture<HttpResponse<T>> sendAsync(
+                java.net.http.HttpRequest request,
+                HttpResponse.BodyHandler<T> responseBodyHandler,
+                HttpResponse.PushPromiseHandler<T> pushPromiseHandler
+        ) {
+            return delegate.sendAsync(
+                    request,
+                    cappedHandler(responseBodyHandler),
+                    pushPromiseHandler
+            );
+        }
+
+        @Override
+        public void close() {
+            delegate.close();
+        }
+
+        private <T> HttpResponse.BodyHandler<T> cappedHandler(
+                HttpResponse.BodyHandler<T> handler
+        ) {
+            return responseInfo -> new CappedBodySubscriber<>(
+                    handler.apply(responseInfo),
+                    maxEventBytes
+            );
+        }
+    }
+
+    static final class CappedBodySubscriber<T>
+            implements HttpResponse.BodySubscriber<T> {
+
+        private final HttpResponse.BodySubscriber<T> delegate;
+        private final long maxEventBytes;
+        private long eventBytes;
+        private boolean previousLineBreak;
+        private boolean terminated;
+        private Flow.Subscription subscription;
+
+        CappedBodySubscriber(
+                HttpResponse.BodySubscriber<T> delegate,
+                long maxEventBytes
+        ) {
+            this.delegate = Objects.requireNonNull(delegate);
+            this.maxEventBytes = maxEventBytes;
+        }
+
+        @Override
+        public void onSubscribe(Flow.Subscription subscription) {
+            this.subscription = subscription;
+            delegate.onSubscribe(subscription);
+        }
+
+        @Override
+        public void onNext(List<ByteBuffer> items) {
+            if (terminated) {
+                return;
+            }
+            try {
+                for (ByteBuffer item : items) {
+                    inspect(item);
+                }
+                delegate.onNext(items);
+            } catch (RuntimeException exception) {
+                terminated = true;
+                if (subscription != null) {
+                    subscription.cancel();
+                }
+                delegate.onError(exception);
+            }
+        }
+
+        @Override
+        public void onError(Throwable throwable) {
+            if (!terminated) {
+                terminated = true;
+                delegate.onError(throwable);
+            }
+        }
+
+        @Override
+        public void onComplete() {
+            if (!terminated) {
+                terminated = true;
+                delegate.onComplete();
+            }
+        }
+
+        @Override
+        public CompletionStage<T> getBody() {
+            return delegate.getBody();
+        }
+
+        private void inspect(ByteBuffer item) {
+            ByteBuffer copy = item.asReadOnlyBuffer();
+            while (copy.hasRemaining()) {
+                byte value = copy.get();
+                eventBytes++;
+                if (eventBytes > maxEventBytes) {
+                    throw new IllegalStateException(
+                            "MCP SSE event exceeds configured limit"
+                    );
+                }
+                if (value == '\n') {
+                    if (previousLineBreak) {
+                        eventBytes = 0;
+                    }
+                    previousLineBreak = true;
+                } else if (value == '\r') {
+                    // CRLF is counted as one logical line ending; the following
+                    // LF decides whether two consecutive lines ended the event.
+                } else {
+                    previousLineBreak = false;
+                }
+            }
         }
     }
 

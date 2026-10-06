@@ -132,7 +132,7 @@
 
 - 按工具绑定的 `maxCalls` 增加单进程每分钟调用预算，超过后返回 `429`；该限制不是跨实例持久化审计，后续需要 Redis/数据库配额替换。
 - 工具参数增加深度、节点数、字符串长度和约 64 KiB 总字符预算，并做递归不可变复制，避免调用方在出站期间修改嵌套对象。
-- SSE client 使用受限 Jackson `StreamReadConstraints`（20 层嵌套、512 KiB 单 JSON 文档、20,000 字符字符串）并使用立即关闭，避免 SDK 固定 10 秒优雅关闭阻塞；这些限制作用于解析后的 JSON，不等同于原始 SSE event 的字节级上限。
+- SSE client 在 HTTP subscriber 层限制原始 SSE event 为 512 KiB，再使用受限 Jackson `StreamReadConstraints`（20 层嵌套、512 KiB 单 JSON 文档、20,000 字符字符串）并立即关闭，避免 SDK 固定 10 秒优雅关闭阻塞。
 - 开启 `MCP_EXECUTION_ENABLED` 时强制要求 `MCP_EXECUTION_ALLOWED_HOSTS`，支持精确域名和 `*.example.com` 子域模式；没有 host allowlist 不启动执行适配器。
 - trigger 层新增请求体过滤器，在 MVC 反序列化前对 MCP 执行请求限制默认 128 KiB；未知 Content-Length 会先读取到受限内存缓存再交给 MVC，覆盖尾部 padding、已知 Content-Length 和编码路径测试。
 

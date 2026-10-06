@@ -76,7 +76,7 @@ ooo1208-trigger      ooo1208-infrastructure
 - `mcp/JdbcMcpToolCatalogQueryAdapter`：按模型预设、工具绑定和服务器状态查询 MCP 白名单。
 - `mcp/InMemoryMcpToolCatalogQueryAdapter`：离线 profile 返回空工具集，不伪造外部工具。
 - `mcp/JdbcMcpServerConnectionQueryAdapter`：只读取启用且 ACTIVE 的登记服务器连接。
-- `mcp/SpringAiMcpToolExecutionAdapter`：默认关闭的 SSE MCP client，限制 endpoint 路径、公网 URL、超时、无重定向、JSON 解析大小和不可信输出。
+- `mcp/SpringAiMcpToolExecutionAdapter`：默认关闭的 SSE MCP client，限制 endpoint 路径、公网 URL、超时、无重定向、原始 SSE event、JSON 解析大小和不可信输出。
 - `network/OutboundUrlValidator`：联网搜索和远程 MCP 共用的公网 URL 安全校验；`OutboundHostAllowlist` 与 `ModelProviderEndpointValidator` 为动态模型聊天/连接测试提供按 Provider 分组的 managed host/port 策略。
 - `websearch/TavilyCompatibleNetworkSearchAdapter`：默认关闭的固定 Provider 搜索适配器，凭证只从配置引用解析。
 - `websearch/NetworkSearchApplicationService`：固定 TTL/LRU 搜索缓存和 Provider 结果不可变保护。

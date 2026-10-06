@@ -57,7 +57,7 @@ Phase 0 和 Phase 1 的核心代码已经落地：聊天和 RAG 都有统一的 
 - HTTP 入口在 JSON 反序列化前限制请求体（默认 128 KiB）；这只保护 MCP 执行入口，其他管理/认证边界仍待补齐。
 - application 层新增 `McpToolCatalogQueryPort` 和只读目录用例；MCP SDK 和传输细节仍留在 infrastructure 边界之外。
 - `OutboundUrlValidator` 统一限制后续 HTTP 出站访问：公网默认只允许 HTTP/HTTPS 的 80/443，并拒绝 userinfo、查询串、回环、私网、链路本地、CGNAT、元数据和组播地址；动态模型 Provider 另按 Provider 使用显式 managed host/port allowlist。
-- `spring-ai-mcp` 只放在 infrastructure；第一版适配器使用 MCP Java SDK 的 SSE transport，每次调用创建并关闭短生命周期 client，限制配置的 host allowlist、超时、无重定向、解析后 JSON 深度/文档大小和逻辑输出长度；Streamable HTTP、STDIO、工具同步、审批、鉴权和持久化审计仍未完成。
+- `spring-ai-mcp` 只放在 infrastructure；第一版适配器使用 MCP Java SDK 的 SSE transport，每次调用创建并关闭短生命周期 client，限制配置的 host allowlist、超时、无重定向、原始 SSE event（512 KiB）、解析后 JSON 深度/文档大小和逻辑输出长度；Streamable HTTP、STDIO、工具同步、审批、鉴权和持久化审计仍未完成。
 
 ### 固定联网搜索第一版
 
