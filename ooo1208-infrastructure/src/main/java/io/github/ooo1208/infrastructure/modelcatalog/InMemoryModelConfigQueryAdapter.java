@@ -2,6 +2,8 @@ package io.github.ooo1208.infrastructure.modelcatalog;
 
 import io.github.ooo1208.application.chat.model.ResolvedModelConfig;
 import io.github.ooo1208.application.chat.port.out.ModelConfigQueryPort;
+import io.github.ooo1208.application.modelcatalog.model.ModelConfigSummary;
+import io.github.ooo1208.application.modelcatalog.port.out.ModelConfigCatalogQueryPort;
 import io.github.ooo1208.domain.modelcatalog.ModelConfigId;
 import io.github.ooo1208.domain.modelcatalog.ProviderType;
 import org.springframework.beans.factory.annotation.Value;
@@ -9,6 +11,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -18,7 +21,7 @@ import java.util.Objects;
 @Component
 @Profile("in-memory-model-config")
 public final class InMemoryModelConfigQueryAdapter
-        implements ModelConfigQueryPort {
+        implements ModelConfigQueryPort, ModelConfigCatalogQueryPort {
 
     private final Map<String, ResolvedModelConfig> modelConfigs;
 
@@ -72,5 +75,25 @@ public final class InMemoryModelConfigQueryAdapter
         }
 
         return modelConfig;
+    }
+
+    @Override
+    public List<ModelConfigSummary> queryEnabledModelConfigs() {
+        return List.of(
+                new ModelConfigSummary(
+                        new ModelConfigId("ollama-local"),
+                        "Ollama Local",
+                        ProviderType.OLLAMA,
+                        "TEXT,RAG",
+                        true
+                ),
+                new ModelConfigSummary(
+                        new ModelConfigId("openai-compatible"),
+                        "OpenAI Compatible",
+                        ProviderType.OPENAI_COMPATIBLE,
+                        "TEXT,RAG",
+                        true
+                )
+        );
     }
 }

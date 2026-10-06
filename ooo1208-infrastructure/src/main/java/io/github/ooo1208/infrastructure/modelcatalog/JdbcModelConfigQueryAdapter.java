@@ -2,6 +2,8 @@ package io.github.ooo1208.infrastructure.modelcatalog;
 
 import io.github.ooo1208.application.chat.model.ResolvedModelConfig;
 import io.github.ooo1208.application.chat.port.out.ModelConfigQueryPort;
+import io.github.ooo1208.application.modelcatalog.model.ModelConfigSummary;
+import io.github.ooo1208.application.modelcatalog.port.out.ModelConfigCatalogQueryPort;
 import io.github.ooo1208.domain.modelcatalog.ModelConfigId;
 import io.github.ooo1208.domain.modelcatalog.ProviderType;
 import org.springframework.context.annotation.Profile;
@@ -10,6 +12,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -21,7 +24,7 @@ import java.util.Objects;
 @Component
 @Profile("!in-memory-model-config")
 public final class JdbcModelConfigQueryAdapter
-        implements ModelConfigQueryPort {
+        implements ModelConfigQueryPort, ModelConfigCatalogQueryPort {
 
     private static final String FIND_ENABLED_MODEL_CONFIG = """
             SELECT
@@ -61,6 +64,37 @@ public final class JdbcModelConfigQueryAdapter
                     resultSet.getBoolean("rag_enabled")
             );
 
+    private static final String FIND_ENABLED_MODEL_CONFIGS = """
+            SELECT
+                preset.id AS model_config_id,
+                preset.name AS display_name,
+                provider.provider_type,
+                binding.capabilities,
+                preset.rag_enabled
+            FROM model_preset preset
+            JOIN model_binding binding
+              ON binding.id = preset.model_binding_id
+            JOIN provider_connection provider
+              ON provider.id = binding.connection_id
+            WHERE preset.enabled = TRUE
+              AND binding.enabled = TRUE
+              AND provider.enabled = TRUE
+              AND provider.status = 'ACTIVE'
+            ORDER BY provider.name, preset.name, preset.id
+            """;
+
+    private static final RowMapper<ModelConfigSummary>
+            MODEL_CONFIG_SUMMARY_ROW_MAPPER =
+            (resultSet, rowNumber) -> new ModelConfigSummary(
+                    new ModelConfigId(resultSet.getString("model_config_id")),
+                    resultSet.getString("display_name"),
+                    ProviderType.valueOf(
+                            resultSet.getString("provider_type")
+                    ),
+                    resultSet.getString("capabilities"),
+                    resultSet.getBoolean("rag_enabled")
+            );
+
     private final JdbcTemplate jdbcTemplate;
 
     public JdbcModelConfigQueryAdapter(JdbcTemplate jdbcTemplate) {
@@ -84,5 +118,13 @@ public final class JdbcModelConfigQueryAdapter
                     exception
             );
         }
+    }
+
+    @Override
+    public List<ModelConfigSummary> queryEnabledModelConfigs() {
+        return jdbcTemplate.query(
+                FIND_ENABLED_MODEL_CONFIGS,
+                MODEL_CONFIG_SUMMARY_ROW_MAPPER
+        );
     }
 }

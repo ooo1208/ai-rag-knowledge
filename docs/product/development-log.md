@@ -64,6 +64,7 @@
 - 新增 Flyway V2：`mcp_server_connection`、`mcp_tool`、`model_preset_tool`，以模型预设绑定 MCP 工具白名单。
 - 新增 application 端口和只读用例，暴露 `GET /api/v1/model-configs/{modelConfigId}/tools`。
 - 新增工具选择校验用例和 `POST /api/v1/model-configs/{modelConfigId}/tools/selection`，最多选择 8 个工具，只接受服务端已绑定的 `toolId`。
+- 新增 `GET /api/v1/model-configs` 安全模型选择器目录，响应不包含 Base URL、上游模型 ID 或凭证引用。
 - 工具查询同时检查模型预设、绑定、工具和服务器的启用状态；返回值不包含 endpoint、STDIO 命令或凭证引用。
 - 新增 `OutboundUrlValidator`，为公网 HTTP 出站统一拒绝 userinfo、查询串、危险端口及私网/回环/链路本地/元数据地址。
 

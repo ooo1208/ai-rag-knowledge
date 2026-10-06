@@ -46,6 +46,13 @@ ooo1208-trigger      ooo1208-infrastructure
 - `rag/command/*`：知识库操作命令。
 - `rag/model/*`：不依赖 Web 或 Spring AI 的文件模型。
 
+#### 模型选择器目录
+
+- `modelcatalog/model/ModelConfigSummary`：不含连接细节的模型配置摘要。
+- `modelcatalog/port/in/ListModelConfigsUseCase`：查询启用模型的入站用例。
+- `modelcatalog/port/out/ModelConfigCatalogQueryPort`：模型目录查询出站端口。
+- `modelcatalog/service/ModelConfigCatalogApplicationService`：模型选择器目录用例。
+
 #### MCP 工具目录
 
 - `mcp/model/McpToolDescriptor`：暴露给选择器的安全工具摘要。
@@ -80,6 +87,7 @@ ooo1208-trigger      ooo1208-infrastructure
 - `ChatController`：`POST /api/v1/chat` 和 `/api/v1/chat/stream`。
 - `ModelConnectionController`：`POST /api/v1/model-connections/test`。
 - `ModelToolController`：`GET /api/v1/model-configs/{modelConfigId}/tools` 和 `POST /api/v1/model-configs/{modelConfigId}/tools/selection`。
+- `ModelConfigController`：`GET /api/v1/model-configs`，返回不含凭证和连接地址的模型摘要。
 - `WebSearchController`：`GET /api/v1/web-search`，只接收查询文本和结果数量。
 - `RagController`：知识库上传、Git 分析和标签查询。
 - `ChatRequest`：聊天 HTTP 请求 DTO。

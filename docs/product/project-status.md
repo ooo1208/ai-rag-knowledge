@@ -63,6 +63,11 @@ Phase 0 和 Phase 1 的核心代码已经落地：聊天和 RAG 都有统一的 
 - `GET /api/v1/web-search?query=...&maxResults=...` 只接受查询文本和数量上限，结果只返回标题、链接、摘要，并强制标记 `untrusted=true`。
 - Provider 请求前复用公网 URL 校验，JDK HTTP 客户端禁止自动跟随重定向；未配置 Provider 时返回明确的 `503`，不会让应用启动失败。
 
+### 模型选择器目录第一版
+
+- `GET /api/v1/model-configs` 返回启用模型的安全摘要（配置 ID、展示名、协议类型、能力和 RAG 标记）。
+- 响应不包含 Base URL、上游模型 ID、credentialRef 或任何 API Key，前端可以用返回的 `modelConfigId` 继续查询 MCP 工具。
+
 ### 配置和可读性
 
 - API Key、数据库和 Redis 连接支持环境变量覆盖。
@@ -132,6 +137,7 @@ ooo1208-app/target/ai-rag-knowledge.jar
 - 增加管理员模型配置接口。
 - 增加用户可见模型查询接口，只返回已启用且有权限使用的模型。
 - 前端选择器消费 `modelConfigId`，不消费 API Key、Base URL 或上游模型 ID。
+- 已增加 `GET /api/v1/model-configs` 安全模型摘要接口。
 - 已增加按 `modelConfigId` 查询和校验 MCP 工具白名单的接口；当前只支持目录/选择预检，还不能执行工具。
 
 ### Step 4：接入受控联网搜索和模型发现（联网搜索第一版已完成）
