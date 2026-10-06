@@ -26,6 +26,11 @@
             <groupId>io.github.ooo1208</groupId>
             <artifactId>ooo1208-domain</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
 </project>
