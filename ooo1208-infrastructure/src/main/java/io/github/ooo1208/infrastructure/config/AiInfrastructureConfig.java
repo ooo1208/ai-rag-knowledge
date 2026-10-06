@@ -1,5 +1,7 @@
 package io.github.ooo1208.infrastructure.config;
 
+import io.github.ooo1208.domain.modelcatalog.ProviderType;
+import io.github.ooo1208.infrastructure.network.ModelProviderEndpointValidator;
 import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.ai.ollama.OllamaEmbeddingModel;
 import org.springframework.ai.ollama.api.OllamaApi;
@@ -23,19 +25,29 @@ public class AiInfrastructureConfig {
 
     @Bean
     public OllamaApi ollamaApi(
-            @Value("${spring.ai.ollama.base-url}") String baseUrl
+            @Value("${spring.ai.ollama.base-url}") String baseUrl,
+            ModelProviderEndpointValidator endpointValidator
     ) {
+        String validatedBaseUrl = endpointValidator.validate(
+                ProviderType.OLLAMA,
+                baseUrl
+        ).value();
         return OllamaApi.builder()
-                .baseUrl(baseUrl)
+                .baseUrl(validatedBaseUrl)
                 .build();
     }
 
     @Bean
     public OpenAiApi openAiApi(
             @Value("${spring.ai.openai.base-url}") String baseUrl,
-            @Value("${spring.ai.openai.api-key}") String apiKey
+            @Value("${spring.ai.openai.api-key}") String apiKey,
+            ModelProviderEndpointValidator endpointValidator
     ) {
-        return OpenAiApiSupport.create(baseUrl, apiKey);
+        String validatedBaseUrl = endpointValidator.validate(
+                ProviderType.OPENAI_COMPATIBLE,
+                baseUrl
+        ).value();
+        return OpenAiApiSupport.create(validatedBaseUrl, apiKey);
     }
 
     @Bean

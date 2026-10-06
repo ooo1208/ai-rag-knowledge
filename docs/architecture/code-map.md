@@ -77,14 +77,14 @@ ooo1208-trigger      ooo1208-infrastructure
 - `mcp/InMemoryMcpToolCatalogQueryAdapter`：离线 profile 返回空工具集，不伪造外部工具。
 - `mcp/JdbcMcpServerConnectionQueryAdapter`：只读取启用且 ACTIVE 的登记服务器连接。
 - `mcp/SpringAiMcpToolExecutionAdapter`：默认关闭的 SSE MCP client，限制 endpoint 路径、公网 URL、超时、无重定向、原始 SSE event、JSON 解析大小和不可信输出。
-- `network/OutboundUrlValidator`：联网搜索和远程 MCP 共用的公网 URL 安全校验；`OutboundHostAllowlist` 与 `ModelProviderEndpointValidator` 为动态模型聊天/连接测试提供按 Provider 分组的 managed host/port 策略。
+- `network/OutboundUrlValidator`：联网搜索和远程 MCP 共用的公网 URL 安全校验；`OutboundHostAllowlist` 与 `ModelProviderEndpointValidator` 为固定/动态模型聊天、Embedding 和连接测试提供按 Provider 分组的 managed host/port 策略。
 - `websearch/TavilyCompatibleNetworkSearchAdapter`：默认关闭的固定 Provider 搜索适配器，凭证只从配置引用解析。
 - `websearch/NetworkSearchApplicationService`：固定 TTL/LRU 搜索缓存和 Provider 结果不可变保护。
 - `rag/PgVectorRagRetrieverAdapter`：PgVector 检索。
 - `rag/PgVectorRagDocumentStoreAdapter`：Tika 解析、切分和向量写入。
 - `rag/RedisRagTagStoreAdapter`：Redis 标签存储。
 - `rag/JGitRepositoryReaderAdapter`：Git 仓库读取。
-- `config/AiInfrastructureConfig`：创建 Spring AI、Embedding 和 PgVector Bean。
+- `config/AiInfrastructureConfig`：按 Provider 出站策略创建 Spring AI、Embedding 和 PgVector Bean；PostgreSQL JDBC 连接另受数据库网络配置约束。
 
 ### `ooo1208-trigger`
 

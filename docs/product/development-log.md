@@ -125,7 +125,7 @@
 ### 结果
 
 - 默认 `MCP_EXECUTION_ENABLED=false`，未显式开启时返回 `503`；策略拒绝返回 `400`，Provider 错误返回 `502`。
-- application 新增执行策略、限流和参数边界单元测试，infrastructure 新增适配器安全测试，trigger 新增请求体过滤器测试；当前全套相关测试为 application 18 个、infrastructure 21 个、trigger 5 个。
+- application 新增执行策略、限流和参数边界单元测试，infrastructure 新增适配器安全测试，trigger 新增请求体过滤器测试；当前全套相关测试为 application 18 个、infrastructure 25 个、trigger 5 个。
 - Streamable HTTP、STDIO、工具同步、写操作审批、权限和调用审计仍未开放；真实 MCP 服务连接尚未在当前环境验证。
 
 ### 安全加固
@@ -147,8 +147,20 @@
 ### 结果
 
 - 动态 Provider 不再把数据库 `baseUrl` 原样交给 Spring AI 或 `RestClient`；不命中白名单、端口或私网策略时直接归类为不支持，不发起出站请求。
-- 新增 host 精确/子域匹配、Provider 分组策略和客户端工厂测试；相关测试累计为 application 18 个、infrastructure 21 个、trigger 5 个。
+- 新增 host 精确/子域匹配、Provider 分组策略和客户端工厂测试；相关测试累计为 application 18 个、infrastructure 25 个、trigger 5 个。
 - 仍需在真实 PostgreSQL、Ollama、OpenAI-compatible Provider 上执行迁移和连接冒烟；管理员 CRUD、每连接数据库级 allowlist 与权限审计仍未完成。
+
+## 2026-10-06：固定 AI 出站配置复用 Provider 策略
+
+### 行动
+
+- `AiInfrastructureConfig` 创建固定 `OllamaApi` 和 `OpenAiApi` 前复用 `ModelProviderEndpointValidator`，因此启动时创建的聊天、Embedding 和 PgVector 向量模型不会绕过 host、端口和私网策略。
+- 新增允许/拒绝端口的配置测试；`OLLAMA_BASE_URL` 或 `OPENAI_BASE_URL` 变更时仍需同步对应的 managed-provider allowlist。
+
+### 结果
+
+- 固定 AI HTTP endpoint 与动态聊天/连接测试共用同一套 Provider 出站边界；策略不通过时应用 fail closed，不创建客户端。
+- PostgreSQL 是 JDBC 出站连接，不属于 HTTP URL 校验范围，仍需在数据库网络和部署层单独限制 `POSTGRES_URL`。
 
 ## 2026-10-06：联网搜索受限缓存
 

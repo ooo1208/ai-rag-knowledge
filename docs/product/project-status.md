@@ -45,6 +45,7 @@ Phase 0 和 Phase 1 的核心代码已经落地：聊天和 RAG 都有统一的 
 - `InMemoryModelConfigQueryAdapter` 保留为显式 `in-memory-model-config` profile 下的过渡实现。
 - `ChatModelFactory` 使用解析结果中的 `baseUrl` 和 `credentialRef` 创建每次调用所需的客户端；凭证只从外部配置解析，不从数据库读取明文。
 - 动态模型聊天和连接探针在创建客户端前通过 `ModelProviderEndpointValidator` 校验按 Provider 分组的 host、端口和私网策略；默认开发配置为 Ollama `192.168.23.100:11434`、OpenAI-compatible `api.openai.com:443`。
+- 启动时创建的固定 Ollama/OpenAI API（包括 Embedding 和 PgVector 使用的向量模型）也在 Bean 创建前复用同一套 Provider 出站策略；PostgreSQL JDBC 连接另由数据库网络边界负责。
 - OpenAI Compatible 的 base URL 会统一兼容带或不带 `/v1` 的写法，避免与 Spring AI 默认路径重复拼接。
 - `POST /api/v1/model-connections/test` 只接受已登记且启用的 `modelConfigId`，Ollama 探测模型列表，OpenAI Compatible 探测 `/v1/models`，结果区分认证、网络、服务不可用和模型不存在。
 
@@ -88,7 +89,7 @@ mvn package -DskipTests
 mvn clean package -DskipTests
 ```
 
-2026-10-06 的 `compile` 已包含 MCP V2 迁移、工具目录、SSE 执行适配器、动态 Provider 出站策略和统一 URL 校验，7 个模块全部成功；最近的 application 18 个单元测试、infrastructure 21 个安全测试和 trigger 5 个请求体过滤器测试通过；随后仍需在真实 PostgreSQL/MCP Provider 上执行迁移和连接冒烟。
+2026-10-06 的 `compile` 已包含 MCP V2 迁移、工具目录、SSE 执行适配器、动态 Provider 出站策略和统一 URL 校验，7 个模块全部成功；最近的 application 18 个单元测试、infrastructure 25 个安全测试和 trigger 5 个请求体过滤器测试通过；随后仍需在真实 PostgreSQL/MCP Provider 上执行迁移和连接冒烟。
 
 构建产物：
 
