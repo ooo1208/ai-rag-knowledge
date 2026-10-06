@@ -24,7 +24,7 @@
 - Redis 只用于缓存和短期状态；
 - 统一的流式聊天接口；
 - RAG 按知识库标签检索。
-- MCP 工具以服务端白名单方式绑定到模型预设；联网能力只能通过受控的只读工具进入。
+- MCP 工具以服务端白名单方式绑定到模型预设；联网能力只能通过受控的只读搜索入口或工具进入。
 
 ### 首期不支持
 
@@ -113,7 +113,8 @@ POST /api/v1/chat/stream
   "modelConfigId": "mc_xxx",
   "message": "问题内容",
   "ragTag": "知识库标签",
-  "conversationId": "可选"
+  "conversationId": "可选",
+  "webSearch": false
 }
 ```
 

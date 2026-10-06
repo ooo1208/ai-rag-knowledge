@@ -112,7 +112,7 @@ ooo1208-app/target/ai-rag-knowledge.jar
 6. 会话保存实际调用的模型配置快照。
 7. 统一错误码、超时、重试、fallback、限流、用量和成本统计。
 8. EmbeddingProfile 和知识库级向量模型版本管理。
-9. 固定 provider 的联网搜索、结果清洗和不可信上下文标记（第一版已完成）。
+9. 固定 provider 联网搜索的健康检查、缓存、权限审计和更细结果清洗（基础搜索与不可信上下文第一版已完成）。
 10. MCP SSE/Streamable HTTP/STDIO 的受控连接、工具同步、执行审批和审计。
 
 ## 下一步执行顺序
