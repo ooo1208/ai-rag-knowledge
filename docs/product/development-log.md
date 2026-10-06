@@ -125,7 +125,7 @@
 ### 结果
 
 - 默认 `MCP_EXECUTION_ENABLED=false`，未显式开启时返回 `503`；策略拒绝返回 `400`，Provider 错误返回 `502`。
-- application 新增 4 个执行策略单元测试；`mvn -pl ooo1208-application,ooo1208-infrastructure -am test -DskipTests=false` 通过（12 个测试）。
+- application 新增 5 个执行策略单元测试，infrastructure 新增 4 个适配器安全测试；`mvn -pl ooo1208-application,ooo1208-infrastructure -am test -DskipTests=false` 通过（application 13 个、infrastructure 11 个）。
 - Streamable HTTP、STDIO、工具同步、写操作审批、权限和调用审计仍未开放；真实 MCP 服务连接尚未在当前环境验证。
 
 ## 2026-10-03：统一聊天与 RAG 架构
