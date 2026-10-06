@@ -128,6 +128,19 @@
 - application 新增 5 个执行策略单元测试，infrastructure 新增 4 个适配器安全测试；`mvn -pl ooo1208-application,ooo1208-infrastructure -am test -DskipTests=false` 通过（application 13 个、infrastructure 11 个）。
 - Streamable HTTP、STDIO、工具同步、写操作审批、权限和调用审计仍未开放；真实 MCP 服务连接尚未在当前环境验证。
 
+## 2026-10-06：联网搜索受限缓存
+
+### 行动
+
+- `NetworkSearchApplicationService` 增加固定 TTL 和 LRU 容量上限缓存，键由规范化查询和 `maxResults` 组成。
+- 缓存只保存已经由 Provider 返回并经过 application `List.copyOf` 保护的结果；Provider 异常不会缓存，避免短暂故障污染后续请求。
+- 新增 `WEB_SEARCH_CACHE_TTL_MS` 和 `WEB_SEARCH_CACHE_MAX_ENTRIES` 配置，默认 30 秒、128 条。
+
+### 结果
+
+- 相同搜索在短 TTL 内不会重复访问固定 Provider，不会接受请求方指定缓存 key 或 endpoint。
+- 新增缓存命中、结果数量隔离、LRU 淘汰和异常不缓存测试；`mvn -pl ooo1208-application -am test -DskipTests=false` 通过。
+
 ## 2026-10-03：统一聊天与 RAG 架构
 
 ### 行动

@@ -27,6 +27,8 @@ app:
     timeout-ms: ${WEB_SEARCH_TIMEOUT_MS:5000}
     max-results: ${WEB_SEARCH_MAX_RESULTS:10}
     max-response-bytes: ${WEB_SEARCH_MAX_RESPONSE_BYTES:524288}
+    cache-ttl-ms: ${WEB_SEARCH_CACHE_TTL_MS:30000}
+    cache-max-entries: ${WEB_SEARCH_CACHE_MAX_ENTRIES:128}
 
   # MCP 工具执行默认关闭。开启前必须先登记启用的 SSE 服务器、工具白名单和凭证。
   # 第一版只允许只读且无需确认的工具，输出会标记为不可信内容。

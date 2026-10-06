@@ -79,6 +79,7 @@ ooo1208-trigger      ooo1208-infrastructure
 - `mcp/SpringAiMcpToolExecutionAdapter`：默认关闭的 SSE MCP client，限制公网 URL、超时、无重定向和不可信输出。
 - `network/OutboundUrlValidator`：联网搜索、远程 MCP 和受控 Provider 共用的公网 URL 安全校验。
 - `websearch/TavilyCompatibleNetworkSearchAdapter`：默认关闭的固定 Provider 搜索适配器，凭证只从配置引用解析。
+- `websearch/NetworkSearchApplicationService`：固定 TTL/LRU 搜索缓存和 Provider 结果不可变保护。
 - `rag/PgVectorRagRetrieverAdapter`：PgVector 检索。
 - `rag/PgVectorRagDocumentStoreAdapter`：Tika 解析、切分和向量写入。
 - `rag/RedisRagTagStoreAdapter`：Redis 标签存储。
@@ -127,4 +128,4 @@ ChatController
 
 ## 当前阶段边界
 
-当前数据库模型目录已经具备初始表结构、读取适配器、动态聊天客户端工厂和已登记配置的轻量连接测试；MCP 工具目录具备 V2 表结构、按模型预设的读取/选择适配器和默认关闭的 SSE 只读执行入口；固定联网搜索第一版已具备 application 端口、默认关闭的 Tavily-compatible 适配器和 HTTP 入口，公网出站 URL 有统一校验边界。管理员 CRUD、权限控制、MCP 工具同步、Streamable HTTP/STDIO、审批审计、用户自定义 API Key、模型自动发现和完整前端选择器属于后续阶段。
+当前数据库模型目录已经具备初始表结构、读取适配器、动态聊天客户端工厂和已登记配置的轻量连接测试；MCP 工具目录具备 V2 表结构、按模型预设的读取/选择适配器和默认关闭的 SSE 只读执行入口；固定联网搜索第一版已具备 application 端口、默认关闭的 Tavily-compatible 适配器、受限缓存和 HTTP 入口，公网出站 URL 有统一校验边界。管理员 CRUD、权限控制、MCP 工具同步、Streamable HTTP/STDIO、审批审计、用户自定义 API Key、模型自动发现和完整前端选择器属于后续阶段。

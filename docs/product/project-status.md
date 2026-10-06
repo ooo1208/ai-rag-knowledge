@@ -61,6 +61,7 @@ Phase 0 和 Phase 1 的核心代码已经落地：聊天和 RAG 都有统一的 
 
 - application 层新增 `NetworkSearchPort`、查询/结果模型和 `SearchWebUseCase`，不携带 URL、API Key 或 Provider 细节。
 - infrastructure 提供默认关闭的 Tavily-compatible 适配器，endpoint、凭证引用、超时和结果上限只从服务端配置读取。
+- application 搜索用例增加固定 TTL、容量受限的进程内缓存；缓存键包含规范化查询和结果数量，Provider 异常不会写入缓存。
 - `GET /api/v1/web-search?query=...&maxResults=...` 只接受查询文本和数量上限，结果只返回标题、链接、摘要，并强制标记 `untrusted=true`。
 - Provider 请求前复用公网 URL 校验，JDK HTTP 客户端禁止自动跟随重定向；未配置 Provider 时返回明确的 `503`，不会让应用启动失败。
 
@@ -113,7 +114,7 @@ ooo1208-app/target/ai-rag-knowledge.jar
 6. 会话保存实际调用的模型配置快照。
 7. 统一错误码、超时、重试、fallback、限流、用量和成本统计。
 8. EmbeddingProfile 和知识库级向量模型版本管理。
-9. 固定 provider 联网搜索的健康检查、缓存、权限审计和更细结果清洗（基础搜索与不可信上下文第一版已完成）。
+9. 固定 provider 联网搜索的健康检查、权限审计和更细结果清洗（基础搜索、不可信上下文和受限缓存第一版已完成）。
 10. MCP Streamable HTTP/STDIO 的受控连接、工具同步、执行审批和审计；SSE 只读执行已有默认关闭的第一版适配器。
 
 ## 下一步执行顺序
@@ -135,17 +136,17 @@ ooo1208-app/target/ai-rag-knowledge.jar
 
 ### Step 3：提供模型目录和 MCP 选择 API（第一版已完成）
 
-- 增加管理员模型配置接口。
-- 增加用户可见模型查询接口，只返回已启用且有权限使用的模型。
+- 管理员模型配置 CRUD 仍待实现；当前只由启动种子和数据库迁移提供系统预置目录。
+- 已增加用户可见模型查询接口，只返回已启用模型的安全摘要；真正的用户权限过滤仍待接入。
 - 前端选择器消费 `modelConfigId`，不消费 API Key、Base URL 或上游模型 ID。
 - 已增加 `GET /api/v1/model-configs` 安全模型摘要接口。
-- 已增加按 `modelConfigId` 查询、校验 MCP 工具白名单和执行只读工具的接口；执行默认关闭，当前只支持登记服务器的 SSE transport。
+- 已增加按 `modelConfigId` 查询、校验 MCP 工具白名单和执行只读工具的接口；`/tools/selection` 是无状态预检，不会替用户持久化绑定；执行默认关闭，当前只支持登记服务器的 SSE transport。
 
 ### Step 4：接入受控联网搜索和模型发现（联网搜索第一版已完成）
 
 - 先固定一个服务端配置的 `SEARCH_ONLY` provider，不允许聊天请求传任意 URL。
 - 搜索请求和所有重定向都要通过 `OutboundUrlValidator`，增加超时、响应大小和域名白名单。
-- 已提供默认关闭的 Tavily-compatible `GET /api/v1/web-search`，并限制超时、响应字节数和重定向；仍待增加固定 provider 健康检查、缓存和权限审计。
+- 已提供默认关闭的 Tavily-compatible `GET /api/v1/web-search`，并限制超时、响应字节数、重定向和进程内缓存；仍待增加固定 provider 健康检查和权限审计。
 - Ollama 使用本地模型列表接口；OpenAI Compatible 先尝试 `/models`，不支持时允许手工录入。
 - 同步结果写入缓存和数据库，失败不能删除上一次可用模型。
 
